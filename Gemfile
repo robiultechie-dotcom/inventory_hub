@@ -41,3 +41,4 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+gem "csv", "~> 3.3"
