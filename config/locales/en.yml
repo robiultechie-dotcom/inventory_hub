@@ -1,31 +1,263 @@
-# Files in the config/locales directory are used for internationalization and
-# are automatically loaded by Rails. If you want to use locales other than
-# English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# To learn more about the API, please read the Rails Internationalization guide
-# at https://guides.rubyonrails.org/i18n.html.
-#
-# Be aware that YAML interprets the following case-insensitive strings as
-# booleans: `true`, `false`, `on`, `off`, `yes`, `no`. Therefore, these strings
-# must be quoted to be interpreted as strings. For example:
-#
-#     en:
-#       "yes": yup
-#       enabled: "ON"
-
 en:
-  hello: "Hello world"
+  activerecord:
+    errors:
+      models:
+        item:
+          attributes:
+            base:
+              single_line_only: "cannot contain line breaks"
+          messages:
+            single_line_only: "cannot contain line breaks"
+            taken: "has already been taken in this inventory"
+  datetime:
+    distance_in_words:
+      half_a_minute: "half a minute"
+      less_than_x_seconds:
+        one: "less than 1 second"
+        other: "less than %{count} seconds"
+      x_seconds:
+        one: "1 second"
+        other: "%{count} seconds"
+      less_than_x_minutes:
+        one: "less than a minute"
+        other: "less than %{count} minutes"
+      x_minutes:
+        one: "1 minute"
+        other: "%{count} minutes"
+      about_x_hours:
+        one: "about 1 hour"
+        other: "about %{count} hours"
+      x_days:
+        one: "1 day"
+        other: "%{count} days"
+      about_x_months:
+        one: "about 1 month"
+        other: "about %{count} months"
+      x_months:
+        one: "1 month"
+        other: "%{count} months"
+      about_x_years:
+        one: "about 1 year"
+        other: "about %{count} years"
+      over_x_years:
+        one: "over 1 year"
+        other: "over %{count} years"
+      almost_x_years:
+        one: "almost 1 year"
+        other: "almost %{count} years"
+  categories:
+    equipment: "Equipment"
+    furniture: "Furniture"
+    book: "Book"
+    other: "Other"
+  flashes:
+    signed_in: "Authenticated successfully as %{name}."
+    signed_out: "Signed out successfully."
+    invalid_credentials: "Invalid email or password."
+    password_too_short: "Password must be at least 6 characters long."
+    account_blocked: "Your account is blocked or no longer active."
+    email_unconfirmed: "Your email address is not verified yet. A new confirmation link has been sent to %{email}."
+    email_confirmed: "Email confirmed! Welcome to InventoryHub, %{name}."
+    invalid_token: "Invalid or expired confirmation link."
+    email_taken: "Email address is already registered."
+    confirmation_sent: "Account created! A confirmation link has been sent to %{email}. Please check your inbox and spam folder."
+    mail_delivery_failed: "Unable to send the confirmation email right now. Please check the mail server configuration and try again."
+    auth_required: "Please sign in to perform this action."
+    admin_required: "Administrator access required."
+    unauthorized: "You are not authorized to manage this inventory."
+    write_access_required: "Write access is required to modify items."
+    invalid_image: "Please upload a valid image file."
+    inventory_created: "Inventory created successfully."
+    inventory_updated: "Inventory settings saved."
+    inventory_deleted: "Inventory deleted."
+    inventories_deleted: "Selected inventories deleted."
+    custom_id_updated: "Custom ID format saved."
+    fields_updated: "Custom fields saved."
+    user_not_found: "No registered user found matching that name or email."
+    owner_already_has_access: "The inventory owner already has full access."
+    access_granted: "Write access granted to %{name}."
+    access_revoked: "Write access removed for selected users."
+    item_created: "Item added successfully."
+    item_updated: "Item updated successfully."
+    items_deleted: "Selected items deleted."
+    no_users_selected: "Please select at least one user."
+    users_updated: "User accounts updated successfully."
+    self_demoted: "You have removed your own administrator privileges."
+  nav:
+    search_placeholder: "Search inventories, items, tags... (/)"
+    workspace: "My Workspace"
+    admin_panel: "Admin"
+    sign_in: "Sign In"
+    sign_out: "Sign Out"
+    theme_light: "Light"
+    theme_dark: "Dark"
+  auth:
+    sign_in_title: "Sign in to InventoryHub"
+    sign_in_subtitle: "Use your social account or work email"
+    oauth_not_configured: "Configure OAuth environment credentials to enable social sign-in."
+    or_email: "or continue with email"
+    email: "Email address"
+    password: "Password"
+    full_name: "Full name"
+    no_account: "Don't have an account?"
+    have_account: "Already have an account?"
+    create_account: "Create account"
+    email_confirm_hint: "Requires email confirmation link verification after sign-up."
+    confirm_link_label: "Confirm Email Address"
+    confirm_email_subject: "Confirm your InventoryHub account"
+  common:
+    cancel: "Cancel"
+    create: "Create"
+    save: "Save Changes"
+    delete: "Delete"
+    open: "Open"
+    edit: "Edit"
+    back: "Back"
+    public: "Public"
+    restricted: "Restricted"
+    read_only: "Read-only mode"
+    saved_badge: "All changes saved"
+    like_toggle: "Like / Unlike"
+    likes: "Likes"
+    created_at: "Created At"
+    no_items: "No items found."
+    no_inventories: "No inventories found."
+    time_ago: "%{time} ago"
+    true_yes: "True / Yes"
+    false_no: "False / No"
+    search_heading: "Search"
+    tag_heading: "Tag"
+    page_summary: "Page %{page} of %{total}"
+    prev_page: "Previous"
+    next_page: "Next"
+  search:
+    results_summary: "%{inv_count} inventories and %{item_count} items matched"
+    col_item: "Item"
+  items:
+    validation_failed: "Please fix the following errors:"
+    invalid_custom_id_format: "does not match required inventory format (e.g. %{example})"
+    invalid_link_url: "must be a valid http:// or https:// URL"
+    confirm_delete: "Delete selected items?"
+  home:
+    badge: "Enterprise Inventory Platform"
+    hero_title: "Dynamic Inventory Management"
+    hero_subtitle: "Define custom schemas, automate composite IDs, and collaborate in real time with optimistic locking."
+    explore_btn: "Explore Inventories"
+    new_inventory_btn: "New Inventory"
+    stats_inventories: "Inventories"
+    stats_items: "Total Items"
+    latest_title: "Latest Inventories"
+    latest_subtitle: "Recently created registries across departments"
+    popular_title: "Top 5 Most Popular"
+    popular_subtitle: "Ranked by total item count"
+    tag_cloud_title: "Tag Cloud"
+    tag_cloud_subtitle: "Filter inventories by tag"
+    toolbar_selected: "selected"
+    toolbar_open: "Open"
+    toolbar_export: "Export CSV"
+    toolbar_delete: "Delete"
+    col_inventory: "Inventory"
+    col_category: "Category"
+    col_creator: "Creator"
+    col_items: "Items"
+    col_rank: "#"
+  inventory:
+    title: "Title"
+    description: "Description (Markdown)"
+    tags: "Tags (Autocomplete)"
+    tags_placeholder: "hardware, office, books"
+    cloud_image: "Cloud Image / Illustration"
+    public_access: "Public inventory (allow all signed-in users to add/edit items)"
+    add_item: "Add Item"
+    created_by: "Created by"
+    conflict_msg: "Version conflict: Modified by another session."
+    reload_latest: "Reload Latest"
+    overwrite_retry: "Overwrite & Retry"
+    live_stream: "Live Stream"
+    confirm_delete: "Delete selected inventories?"
+    chat_placeholder: "Write a comment (Markdown supported)..."
+    post_comment: "Post"
+    no_comments: "No comments yet. Start the discussion!"
+    custom_id_example: "Example:"
+    custom_id_help_text: "You can set up items with inventory numbers in your preferred format. To create a format, add new elements, edit them, drag to reorder, or drag elements out of the form to delete them."
+    add_element: "Add element"
+    popover_title: "Formatting Options"
+    popover_body: "Fixed: Unicode/emoji (📦-) | Random: X5_ (5-digit hex) or D6 (6-digit decimal) | Sequence: D3_ (leading zeros) or D | Date/time: yyyy, MM, dd, ddd, HH, mm, ss"
+    id_elements:
+      fixed: "Fixed text"
+      random_20bit: "20-bit random"
+      random_32bit: "32-bit random"
+      random_6digit: "6-digit random"
+      random_9digit: "9-digit random"
+      guid: "GUID"
+      datetime: "Date/time"
+      sequence: "Sequence"
+    field_slot_labels:
+      string: "Single-Line Text"
+      text: "Multi-Line Text"
+      int: "Numeric"
+      link: "Document/Image"
+      bool: "True/False"
+    fields_title: "Custom Fields (Up to 3 per type)"
+    fields_subtitle: "Drag rows to reorder fields. Fixed fields (created_by, created_at, custom_id) are always included."
+    add_field: "Add Field"
+    field_title_placeholder: "Field Title"
+    field_desc_placeholder: "Description (displayed as tooltip hint)"
+    show_in_table: "Show in table"
+    type_string: "Single-Line Text (Max 3)"
+    type_text: "Multi-Line Text (Max 3)"
+    type_int: "Numeric Field (Max 3)"
+    type_link: "Document/Image Link (Max 3)"
+    type_bool: "True/False Checkbox (Max 3)"
+    grant_access_title: "Grant Write Access (Autocomplete by Name or Email)"
+    grant_access_placeholder: "Type username or email..."
+    grant_access_btn: "Grant Access"
+    remove_selected: "Remove Selected"
+    sort_by_name: "By Name"
+    sort_by_email: "By Email"
+    no_users: "No specific users added."
+    stats_numeric_title: "Numeric Fields (Average & Range)"
+    stats_string_title: "Most Frequent Values (String Fields)"
+    stats_avg: "Avg"
+    stats_min: "Min"
+    stats_max: "Max"
+    no_numeric: "No numeric fields configured."
+    no_strings: "No string fields configured."
+    field_col: "Field"
+    tabs:
+      items: "Items"
+      discussion: "Chat"
+      settings: "Settings"
+      custom_id: "Custom ID"
+      fields: "Fields"
+      access: "Access"
+      stats: "Stats"
+      export: "Export"
+  workspace:
+    owned_title: "Inventories I Own"
+    owned_subtitle: "Create, configure, or delete your inventories"
+    writable_title: "Inventories With Write Access"
+    writable_subtitle: "Shared and public inventories you can populate"
+    filter_placeholder: "Filter by title or description..."
+    all_categories: "All Categories"
+    sort_newest: "Newest"
+    sort_oldest: "Oldest"
+    sort_title_asc: "Title (A-Z)"
+    sort_title_desc: "Title (Z-A)"
+    sort_most_items: "Most Items"
+  admin:
+    title: "User Management"
+    subtitle: "Block, unblock, delete users, or manage admin privileges (admins can demote themselves)"
+    block: "Block"
+    unblock: "Unblock"
+    make_admin: "Make Admin"
+    remove_admin: "Remove Admin"
+    confirm_delete: "Delete selected user accounts permanently?"
+    col_user: "User"
+    col_role: "Role"
+    col_status: "Status"
+    role_admin: "Admin"
+    role_user: "User"
+    status_active: "Active"
+    status_blocked: "Blocked"
+    you_badge: "You"

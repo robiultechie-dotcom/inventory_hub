@@ -1,0 +1,109 @@
+<% id_example = CustomIdGenerator.new(@inventory).generate(preview: true) %>
+
+<div class="card p-4">
+  <%= form_with model: [@inventory, @item], local: true do |f| %>
+    <%= f.hidden_field :lock_version %>
+    <% if @item.new_record? && @initial_generated_id.present? %>
+      <%= hidden_field_tag :initial_generated_id, @initial_generated_id %>
+    <% end %>
+
+    <% if @conflict_detected %>
+      <div class="alert alert-danger border-0 shadow-sm rounded-3 d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div class="d-flex align-items-center">
+          <i class="bi bi-exclamation-octagon-fill fs-5 me-2"></i>
+          <strong><%= t('inventory.conflict_msg') %></strong>
+        </div>
+        <div class="d-flex gap-2">
+          <%= link_to edit_inventory_item_path(@inventory, @item), class: "btn btn-sm btn-outline-danger bg-body fw-semibold rounded-3" do %>
+            <i class="bi bi-arrow-clockwise me-1"></i><%= t('inventory.reload_latest') %>
+          <% end %>
+          <button type="submit" name="force_overwrite" value="1" class="btn btn-sm btn-danger fw-semibold rounded-3">
+            <i class="bi bi-cloud-upload me-1"></i><%= t('inventory.overwrite_retry') %>
+          </button>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @item.errors.any? %>
+      <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4">
+        <div class="fw-bold small mb-1">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i><%= t('items.validation_failed') %>
+        </div>
+        <ul class="mb-0 small ps-3">
+          <% @item.errors.full_messages.each do |msg| %>
+            <li><%= msg %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div class="row g-3 pb-3 mb-4 border rounded-3 p-3 mx-0 bg-body-tertiary">
+      <div class="col-md-6">
+        <%= f.label :custom_id, "Custom ID", class: "form-label modern-label" %>
+        <div class="input-group">
+          <span class="input-group-text bg-body font-mono text-primary"><i class="bi bi-upc-scan"></i></span>
+          <%= f.text_field :custom_id,
+                class: "form-control modern-input font-mono fw-semibold",
+                required: true,
+                placeholder: id_example %>
+        </div>
+        <div class="form-text small font-mono mt-1">
+          <%= t('inventory.custom_id_example') %> <strong class="text-primary"><%= id_example %></strong>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label modern-label text-secondary"><%= t('home.col_creator') %></label>
+        <input type="text"
+               class="form-control modern-input bg-body"
+               value="<%= (@item.created_by || current_user)&.name %>"
+               disabled>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label modern-label text-secondary"><%= t('common.created_at') %></label>
+        <input type="text"
+               class="form-control modern-input font-mono bg-body"
+               value="<%= (@item.created_at || Time.current).strftime('%Y-%m-%d %H:%M') %>"
+               disabled>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <% @active_fields.each do |field| %>
+        <% col = field[:value_column] %>
+        <div class="<%= field[:type] == 'text' ? 'col-12' : 'col-md-6' %>">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <%= f.label col, field[:name], class: "form-label modern-label mb-0" %>
+            <% if field[:description].present? %>
+              <span class="text-secondary small" data-bs-toggle="tooltip" title="<%= field[:description] %>">
+                <i class="bi bi-info-circle me-1"></i><%= field[:description] %>
+              </span>
+            <% end %>
+          </div>
+
+          <% case field[:type] %>
+          <% when "string" %>
+            <%= f.text_field col, class: "form-control modern-input", maxlength: 255, title: field[:description] %>
+          <% when "text" %>
+            <%= f.text_area col, rows: 3, class: "form-control modern-input", title: field[:description] %>
+          <% when "int" %>
+            <%= f.number_field col, step: "any", class: "form-control modern-input font-mono", title: field[:description] %>
+          <% when "link" %>
+            <%= f.url_field col, class: "form-control modern-input font-mono", placeholder: "https://...", title: field[:description] %>
+          <% when "bool" %>
+            <div class="form-check form-switch pt-1">
+              <%= f.check_box col, class: "form-check-input fs-5" %>
+              <%= f.label col, t('common.true_yes'), class: "form-check-label small ms-1" %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+      <%= link_to t('common.cancel'), inventory_path(@inventory, tab: "items"), class: "btn btn-outline-secondary rounded-3 px-4" %>
+      <%= f.submit t('common.save'), class: "btn btn-primary fw-semibold rounded-3 px-4 shadow-sm" %>
+    </div>
+  <% end %>
+</div>

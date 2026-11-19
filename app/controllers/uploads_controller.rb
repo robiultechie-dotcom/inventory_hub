@@ -1,0 +1,116 @@
+# frozen_string_literal: true
+
+require "net/http"
+require "uri"
+require "json"
+require "openssl"
+require "digest/sha1"
+
+class UploadsController < ApplicationController
+  before_action :authenticate_user!
+
+  MAX_FILE_SIZE = 5.megabytes
+  ALLOWED_CONTENT_TYPES = %w[image/jpeg image/png image/webp image/gif].freeze
+
+  def create
+    uploaded_file = params[:file]
+    validate_uploaded_file!(uploaded_file)
+
+    image_url = upload_to_cloud_stream(uploaded_file)
+    render json: { url: image_url }, status: :created
+  rescue StandardError => e
+    render json: { error: e.message }, status: :unprocessable_entity
+  end
+
+  private
+
+  def validate_uploaded_file!(file)
+    unless file.respond_to?(:content_type) && ALLOWED_CONTENT_TYPES.include?(file.content_type.to_s.downcase)
+      raise StandardError, t("flashes.invalid_image")
+    end
+
+    if file.respond_to?(:size) && file.size > MAX_FILE_SIZE
+      raise StandardError, "Image size must be under 5 MB."
+    end
+  end
+
+  def upload_to_cloud_stream(uploaded_file)
+    if ENV["CLOUDINARY_URL"].present?
+      stream_to_cloudinary(uploaded_file)
+    else
+      stream_to_cdn(uploaded_file)
+    end
+  end
+
+  # Section 15: Streams binary file via multipart/form-data to Cloudinary without Base64 encoding
+  def stream_to_cloudinary(uploaded_file)
+    uri_cfg    = URI.parse(ENV.fetch("CLOUDINARY_URL"))
+    cloud_name = uri_cfg.host
+    api_key    = uri_cfg.user
+    api_secret = uri_cfg.password
+    timestamp  = Time.current.to_i.to_s
+    signature  = Digest::SHA1.hexdigest("timestamp=#{timestamp}#{api_secret}")
+    endpoint   = URI.parse("https://api.cloudinary.com/v1_1/#{cloud_name}/image/upload")
+
+    File.open(uploaded_file.tempfile.path, "rb") do |file_io|
+      multipart_fields = [
+        ["file", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s }],
+        ["api_key", api_key],
+        ["timestamp", timestamp],
+        ["signature", signature]
+      ]
+      response = post_multipart_stream(endpoint, multipart_fields)
+      JSON.parse(response.body).fetch("secure_url")
+    end
+  end
+
+  def stream_to_cdn(uploaded_file)
+    endpoint = URI.parse("https://freeimage.host/api/1/upload")
+
+    File.open(uploaded_file.tempfile.path, "rb") do |file_io|
+      multipart_fields = [
+        ["key", ENV.fetch("FREEIMAGE_API_KEY", "6d207e02198a847aa98d0a2a901485a5")],
+        ["action", "upload"],
+        ["format", "json"],
+        ["source", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s }]
+      ]
+      response = post_multipart_stream(endpoint, multipart_fields)
+      JSON.parse(response.body).dig("image", "url") || raise(StandardError, "Cloud upload failed.")
+    end
+  end
+
+  def post_multipart_stream(uri, multipart_fields)
+    response = execute_multipart_post(uri, multipart_fields, verify_ssl: true)
+    raise(StandardError, "Cloud service error (#{response.code})") unless response.is_a?(Net::HTTPSuccess)
+
+    response
+  rescue OpenSSL::SSL::SSLError
+    raise if Rails.env.production?
+
+    multipart_fields.each { |field| field[1].rewind if field[1].respond_to?(:rewind) }
+    response = execute_multipart_post(uri, multipart_fields, verify_ssl: false)
+    raise(StandardError, "Cloud service error (#{response.code})") unless response.is_a?(Net::HTTPSuccess)
+
+    response
+  end
+
+  def execute_multipart_post(uri, multipart_fields, verify_ssl:)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.open_timeout = 10
+    http.read_timeout = 25
+
+    if verify_ssl
+      store = OpenSSL::X509::Store.new
+      store.set_default_paths
+      http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      http.cert_store = store
+    else
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    end
+
+    request = Net::HTTP::Post.new(uri.request_uri)
+    request.set_form(multipart_fields, "multipart/form-data")
+    http.request(request)
+  end
+end

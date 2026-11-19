@@ -1,0 +1,17 @@
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-1 small">
+        <li class="breadcrumb-item"><%= link_to @inventory.title, inventory_path(@inventory, tab: "items"), class: "text-decoration-none" %></li>
+        <li class="breadcrumb-item active" aria-current="page"><%= t('inventory.add_item') %></li>
+      </ol>
+    </nav>
+    <h1 class="h4 fw-bold mb-0"><%= t('inventory.add_item') %></h1>
+  </div>
+
+  <%= link_to inventory_path(@inventory, tab: "items"), class: "btn btn-sm btn-outline-secondary rounded-3" do %>
+    <i class="bi bi-arrow-left me-1"></i><%= t('common.back') %>
+  <% end %>
+</div>
+
+<%= render "form" %>

@@ -1,56 +1,378 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>" data-bs-theme="light">
+<html lang="<%= I18n.locale %>" data-bs-theme="<%= current_theme %>">
   <head>
     <title><%= content_for(:title) || "InventoryHub" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="cloudinary-cloud-name" content="<%= ENV['CLOUDINARY_CLOUD_NAME'] %>">
+    <meta name="cloudinary-upload-preset" content="<%= ENV['CLOUDINARY_UPLOAD_PRESET'] %>">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="bg-body-tertiary">
-    <nav class="navbar navbar-expand-lg border-bottom bg-body sticky-top shadow-sm">
+  <body class="d-flex flex-column min-vh-100" data-bs-theme="<%= current_theme %>">
+    <header class="navbar navbar-expand-lg navbar-glass sticky-top py-2.5">
       <div class="container">
-        <a class="navbar-brand fw-bold" href="<%= root_path %>">
-          <i class="bi bi-boxes text-primary me-1"></i> InventoryHub
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2.5 me-3" href="<%= root_path %>">
+          <span class="brand-logo-box">
+            <i class="bi bi-boxes fs-5"></i>
+          </span>
+          <span class="fs-5 fw-bold">InventoryHub</span>
         </a>
 
-        <form class="d-flex mx-auto my-2 my-lg-0 w-50" role="search">
-          <div class="input-group">
-            <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
-            <input class="form-control" type="search" placeholder="Search inventories, items, tags..." aria-label="Search">
-          </div>
-        </form>
+        <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+          <span class="navbar-toggler-icon"></span>
+        </button>
 
-        <div class="d-flex align-items-center gap-2">
-          <span class="badge bg-secondary">EN</span>
-          <span class="badge bg-dark">Light / Dark</span>
+        <div class="collapse navbar-collapse gap-2 align-items-center" id="mainNavbar">
+          <% if current_user %>
+            <ul class="navbar-nav me-2 gap-1.5 flex-row">
+              <li class="nav-item">
+                <%= link_to user_path(current_user),
+                      class: "btn btn-sm #{request.path == user_path(current_user) ? 'btn-primary shadow-sm' : 'btn-outline-secondary'} fw-semibold text-nowrap rounded-pill px-3" do %>
+                  <i class="bi bi-grid-1x2-fill me-1"></i><%= t('nav.workspace') %>
+                <% end %>
+              </li>
+              <% if current_user.admin? %>
+                <li class="nav-item">
+                  <%= link_to admin_users_path,
+                        class: "btn btn-sm #{request.path.start_with?('/admin') ? 'btn-danger shadow-sm' : 'btn-outline-danger'} fw-semibold text-nowrap rounded-pill px-3" do %>
+                    <i class="bi bi-shield-lock-fill me-1"></i><%= t('nav.admin_panel') %>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
+
+          <div class="mx-lg-auto my-2 my-lg-0 flex-grow-1 search-command-wrapper"
+               style="max-width: 440px;"
+               data-controller="global-search"
+               data-global-search-url-value="<%= search_suggestions_path %>">
+            <select id="globalSearchInput"
+                    data-global-search-target="input"
+                    placeholder="<%= t('nav.search_placeholder') %>"
+                    aria-label="Search"></select>
+            <span class="search-kbd-hint d-none d-md-inline">/</span>
+          </div>
+
+          <div class="d-flex align-items-center gap-2 ms-lg-auto flex-nowrap">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Language">
+              <%= button_to "EN", update_locale_path(locale: :en), method: :post, form: { data: { turbo: false } },
+                    class: "btn #{I18n.locale == :en ? 'btn-primary fw-bold' : 'btn-outline-secondary'}" %>
+              <%= button_to "ES", update_locale_path(locale: :es), method: :post, form: { data: { turbo: false } },
+                    class: "btn #{I18n.locale == :es ? 'btn-primary fw-bold' : 'btn-outline-secondary'}" %>
+            </div>
+
+            <% target_theme = current_theme == "dark" ? "light" : "dark" %>
+            <%= button_to update_theme_path(theme: target_theme), method: :post, form: { data: { turbo: false } },
+                  class: "btn btn-sm btn-outline-secondary text-nowrap rounded-pill px-2.5" do %>
+              <% if current_theme == "dark" %>
+                <i class="bi bi-sun-fill text-warning me-1"></i><span class="d-none d-sm-inline"><%= t('nav.theme_light') %></span>
+              <% else %>
+                <i class="bi bi-moon-stars-fill text-primary me-1"></i><span class="d-none d-sm-inline"><%= t('nav.theme_dark') %></span>
+              <% end %>
+            <% end %>
+
+            <% if current_user %>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-inline-flex align-items-center gap-2 rounded-pill ps-1.5 pe-3 py-1" type="button" data-bs-toggle="dropdown">
+                  <span class="avatar-circle"><%= user_initials(current_user.name) %></span>
+                  <span class="fw-semibold text-truncate" style="max-width: 115px;"><%= current_user.name %></span>
+                  <% if current_user.admin? %>
+                    <span class="badge text-bg-danger rounded-pill"><%= t('admin.role_admin') %></span>
+                  <% end %>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border rounded-4 p-2 mt-2" style="min-width: 230px;">
+                  <li class="px-3 py-2 border-bottom mb-1">
+                    <div class="fw-bold small"><%= current_user.name %></div>
+                    <div class="text-secondary font-mono" style="font-size: 0.72rem;"><%= current_user.email %></div>
+                  </li>
+                  <li>
+                    <%= link_to user_path(current_user), class: "dropdown-item rounded-2 small py-1.5" do %>
+                      <i class="bi bi-person-workspace me-2 text-primary"></i><%= t('nav.workspace') %>
+                    <% end %>
+                  </li>
+                  <li>
+                    <button type="button" class="dropdown-item rounded-2 small py-1.5" data-bs-toggle="modal" data-bs-target="#newInventoryModal">
+                      <i class="bi bi-plus-circle me-2 text-success"></i><%= t('home.new_inventory_btn') %>
+                    </button>
+                  </li>
+                  <% if current_user.admin? %>
+                    <li>
+                      <%= link_to admin_users_path, class: "dropdown-item rounded-2 small py-1.5" do %>
+                        <i class="bi bi-shield-lock me-2 text-danger"></i><%= t('nav.admin_panel') %>
+                      <% end %>
+                    </li>
+                  <% end %>
+                  <li><hr class="dropdown-divider my-1"></li>
+                  <li>
+                    <%= button_to sign_out_path, method: :delete, class: "dropdown-item rounded-2 small py-1.5 text-danger fw-semibold" do %>
+                      <i class="bi bi-box-arrow-right me-2"></i><%= t('nav.sign_out') %>
+                    <% end %>
+                  </li>
+                </ul>
+              </div>
+            <% else %>
+              <button type="button" class="btn btn-sm btn-primary fw-semibold text-nowrap rounded-pill px-3.5 shadow-sm" data-bs-toggle="modal" data-bs-target="#authModal">
+                <i class="bi bi-person-check-fill me-1"></i><%= t('nav.sign_in') %>
+              </button>
+            <% end %>
+          </div>
         </div>
       </div>
-    </nav>
+    </header>
 
-    <main class="container py-4">
+    <main class="container py-4 flex-grow-1">
       <% if notice.present? %>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-          <%= notice %>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-3 border-0 d-flex align-items-center mb-4" role="alert">
+          <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+          <div><%= notice %></div>
+          <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
       <% end %>
       <% if alert.present? %>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-          <%= alert %>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-3 border-0 d-flex align-items-center mb-4" role="alert">
+          <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+          <div><%= alert %></div>
+          <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
       <% end %>
 
       <%= yield %>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <%
+      google_configured   = ENV["GOOGLE_CLIENT_ID"].present? && ENV["GOOGLE_CLIENT_SECRET"].present?
+      facebook_configured = ENV["FACEBOOK_APP_ID"].present? && ENV["FACEBOOK_APP_SECRET"].present?
+    %>
+    <div class="modal fade" id="authModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+        <div class="modal-content modal-modern">
+          <div class="modal-header border-0 px-4 pt-4 pb-2">
+            <div class="d-flex align-items-center gap-2.5">
+              <span class="brand-logo-box">
+                <i class="bi bi-shield-check"></i>
+              </span>
+              <div>
+                <h5 class="modal-title fw-bold mb-0 fs-6" id="authModalHeading"
+                    data-signin-title="<%= t('auth.sign_in_title') %>"
+                    data-register-title="<%= t('auth.create_account') %>"><%= t('auth.sign_in_title') %></h5>
+                <p class="text-secondary small mb-0" id="authModalSubheading" style="font-size: 0.76rem;"><%= t('auth.sign_in_subtitle') %></p>
+              </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body px-4 pt-3 pb-4">
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <% if google_configured %>
+                  <%= button_to "/auth/google_oauth2", method: :post, form: { data: { turbo: false } },
+                        class: "btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 py-2 rounded-3" do %>
+                    <i class="bi bi-google text-danger"></i>
+                    <span class="fw-semibold small">Google</span>
+                  <% end %>
+                <% else %>
+                  <button type="button" disabled title="<%= t('auth.oauth_not_configured') %>"
+                          class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 py-2 rounded-3 opacity-50">
+                    <i class="bi bi-google text-danger"></i>
+                    <span class="fw-semibold small">Google</span>
+                  </button>
+                <% end %>
+              </div>
+              <div class="col-6">
+                <% if facebook_configured %>
+                  <%= button_to "/auth/facebook", method: :post, form: { data: { turbo: false } },
+                        class: "btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 py-2 rounded-3" do %>
+                    <i class="bi bi-facebook text-primary"></i>
+                    <span class="fw-semibold small">Facebook</span>
+                  <% end %>
+                <% else %>
+                  <button type="button" disabled title="<%= t('auth.oauth_not_configured') %>"
+                          class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 py-2 rounded-3 opacity-50">
+                    <i class="bi bi-facebook text-primary"></i>
+                    <span class="fw-semibold small">Facebook</span>
+                  </button>
+                <% end %>
+              </div>
+            </div>
+
+            <% unless google_configured && facebook_configured %>
+              <div class="text-secondary text-center mb-3" style="font-size: 0.72rem;">
+                <i class="bi bi-info-circle me-1"></i><%= t('auth.oauth_not_configured') %>
+              </div>
+            <% end %>
+
+            <div class="d-flex align-items-center my-3 text-secondary" style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase;">
+              <hr class="flex-grow-1 m-0">
+              <span class="px-2"><%= t('auth.or_email') %></span>
+              <hr class="flex-grow-1 m-0">
+            </div>
+
+            <div id="authSignInView">
+              <%= form_with url: sign_in_path, method: :post, local: true do %>
+                <%= hidden_field_tag :auth_mode, "email_login" %>
+                <div class="mb-3">
+                  <label class="form-label modern-label"><%= t('auth.email') %></label>
+                  <input type="email" name="email" class="form-control modern-input" placeholder="name@company.com" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label modern-label"><%= t('auth.password') %></label>
+                  <div class="input-group">
+                    <input type="password" name="password" id="signInPasswordInput" class="form-control modern-input" required>
+                    <button type="button" class="btn btn-outline-secondary" data-pw-toggle="signInPasswordInput" tabindex="-1">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold py-2 rounded-3 shadow-sm"><%= t('nav.sign_in') %></button>
+              <% end %>
+
+              <div class="text-center mt-3 small">
+                <span class="text-secondary"><%= t('auth.no_account') %></span>
+                <button type="button" class="btn btn-link btn-sm p-0 ms-1 fw-semibold text-decoration-none" data-auth-switch="register">
+                  <%= t('auth.create_account') %>
+                </button>
+              </div>
+            </div>
+
+            <div id="authRegisterView" class="d-none">
+              <%= form_with url: sign_in_path, method: :post, local: true do %>
+                <%= hidden_field_tag :auth_mode, "email_register" %>
+                <div class="mb-2.5">
+                  <label class="form-label modern-label"><%= t('auth.full_name') %></label>
+                  <input type="text" name="name" class="form-control modern-input" required>
+                </div>
+                <div class="mb-2.5">
+                  <label class="form-label modern-label"><%= t('auth.email') %></label>
+                  <input type="email" name="email" class="form-control modern-input" placeholder="name@company.com" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label modern-label"><%= t('auth.password') %></label>
+                  <div class="input-group">
+                    <input type="password" name="password" id="registerPasswordInput" class="form-control modern-input" minlength="6" required>
+                    <button type="button" class="btn btn-outline-secondary" data-pw-toggle="registerPasswordInput" tabindex="-1">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                  <div class="form-text small"><%= t('auth.email_confirm_hint') %></div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold py-2 rounded-3 shadow-sm"><%= t('auth.create_account') %></button>
+              <% end %>
+
+              <div class="text-center mt-3 small">
+                <span class="text-secondary"><%= t('auth.have_account') %></span>
+                <button type="button" class="btn btn-link btn-sm p-0 ms-1 fw-semibold text-decoration-none" data-auth-switch="signin">
+                  <%= t('nav.sign_in') %>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <% if current_user %>
+      <div class="modal fade" id="newInventoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 650px;">
+          <div class="modal-content modal-modern">
+            <%= form_with model: Inventory.new, url: inventories_path, method: :post, id: "newInventoryForm" do |f| %>
+              <%= f.hidden_field :image_url, id: "modalInventoryImageUrl" %>
+
+              <div class="modal-header border-bottom px-4 py-3">
+                <div class="d-flex align-items-center gap-2.5">
+                  <span class="brand-logo-box">
+                    <i class="bi bi-folder-plus"></i>
+                  </span>
+                  <h5 class="modal-title fw-bold mb-0 fs-6"><%= t('home.new_inventory_btn') %></h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+
+              <div class="modal-body px-4 py-3">
+                <div class="mb-3">
+                  <%= f.label :title, t('inventory.title'), class: "form-label modern-label" %>
+                  <%= f.text_field :title, class: "form-control modern-input", required: true %>
+                </div>
+
+                <div class="row g-3 mb-3">
+                  <div class="col-sm-5">
+                    <%= f.label :category_id, t('home.col_category'), class: "form-label modern-label" %>
+                    <%= f.select :category_id,
+                          options_for_select(all_categories.map { |c| [localized_category_name(c), c.id] }),
+                          {},
+                          class: "form-select modern-input" %>
+                  </div>
+                  <div class="col-sm-7">
+                    <%= f.label :tag_list, t('inventory.tags'), class: "form-label modern-label" %>
+                    <%= f.text_field :tag_list, id: "modalTagInput", class: "form-control", placeholder: t('inventory.tags_placeholder') %>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <%= f.label :description, t('inventory.description'), class: "form-label modern-label" %>
+                  <%= f.text_area :description, id: "modalDescInput", rows: 3, class: "form-control" %>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label modern-label"><%= t('inventory.cloud_image') %></label>
+                  <div id="modalDropzone" class="cloud-dropzone"></div>
+
+                  <div id="modalImagePreviewCard" class="d-none mt-2 p-2.5 rounded-3 border bg-body-tertiary d-flex align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-3 overflow-hidden">
+                      <img id="modalImagePreviewImg" src="" alt="" class="rounded-2 border object-fit-cover flex-shrink-0" style="width: 48px; height: 48px;">
+                      <span class="badge bg-success-subtle text-success border border-success-subtle">
+                        <i class="bi bi-cloud-check-fill me-1"></i><%= t('common.saved_badge') %>
+                      </span>
+                    </div>
+                    <button type="button" id="modalRemoveImgBtn" class="btn btn-sm btn-outline-danger flex-shrink-0">
+                      <i class="bi bi-trash3 me-1"></i><%= t('common.delete') %>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="p-2.5 rounded-3 border bg-body-tertiary d-flex align-items-center justify-content-between gap-3">
+                  <label class="form-check-label small fw-medium mb-0" for="modalPublicSwitch"><%= t('inventory.public_access') %></label>
+                  <div class="form-check form-switch m-0">
+                    <%= f.check_box :is_public, class: "form-check-input fs-5", id: "modalPublicSwitch", checked: false %>
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer border-top px-4 py-3 bg-body-tertiary">
+                <button type="button" class="btn btn-outline-secondary rounded-3 px-3" data-bs-dismiss="modal"><%= t('common.cancel') %></button>
+                <%= f.submit t('common.create'), id: "modalCreateSubmitBtn", class: "btn btn-primary fw-semibold rounded-3 px-4 shadow-sm" %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <footer class="border-top py-3.5 mt-5 small text-secondary bg-body">
+      <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="brand-logo-box" style="width: 24px; height: 24px; border-radius: 0.4rem;">
+            <i class="bi bi-boxes" style="font-size: 0.75rem;"></i>
+          </span>
+          <span class="fw-semibold text-body">InventoryHub</span>
+        </div>
+        <span class="font-mono" style="font-size: 0.78rem;">Rails <%= Rails.version %> &bull; PostgreSQL</span>
+      </div>
+    </footer>
   </body>
 </html>

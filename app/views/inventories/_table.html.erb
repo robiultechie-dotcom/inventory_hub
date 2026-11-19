@@ -1,0 +1,143 @@
+<%
+  show_toolbar = local_assigns.fetch(:selectable, false) && current_user.present?
+  allow_delete = local_assigns.fetch(:deletable, true) && current_user.present?
+  allow_create = local_assigns.fetch(:creatable, false) && current_user.present?
+%>
+
+<div data-controller="table-selection">
+  <% if show_toolbar %>
+    <%= form_with url: bulk_destroy_inventories_path, method: :delete, data: { table_selection_target: "form" } do %>
+      <div data-table-selection-target="idsContainer"></div>
+    <% end %>
+
+    <div data-table-selection-target="toolbar" class="context-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <span data-table-selection-target="counter" data-label="<%= t('home.toolbar_selected') %>" class="badge text-bg-secondary rounded-pill font-mono px-2.5 py-1">
+        0 <%= t('home.toolbar_selected') %>
+      </span>
+
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <% if allow_create %>
+          <button type="button" class="btn btn-sm btn-primary rounded-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#newInventoryModal">
+            <i class="bi bi-plus-lg me-1"></i><%= t('home.new_inventory_btn') %>
+          </button>
+        <% end %>
+
+        <button type="button" data-table-selection-target="singleAction" data-action="click->table-selection#openSelected" class="btn btn-sm btn-outline-primary rounded-3" disabled>
+          <i class="bi <%= allow_delete ? 'bi-pencil-square' : 'bi-box-arrow-up-right' %> me-1"></i><%= allow_delete ? t('common.edit') : t('home.toolbar_open') %>
+        </button>
+
+        <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#exportCsv" data-export-url="<%= export_csv_inventories_path %>" class="btn btn-sm btn-outline-secondary rounded-3" disabled>
+          <i class="bi bi-download me-1"></i><%= t('home.toolbar_export') %>
+        </button>
+
+        <% if allow_delete %>
+          <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#submitBulk" data-confirm-message="<%= t('inventory.confirm_delete') %>" class="btn btn-sm btn-outline-danger rounded-3" disabled>
+            <i class="bi bi-trash3 me-1"></i><%= t('home.toolbar_delete') %>
+          </button>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-enterprise align-middle mb-0">
+      <thead>
+        <tr>
+          <% if show_toolbar %>
+            <th class="ps-4" style="width: 44px;">
+              <input type="checkbox" class="form-check-input" data-table-selection-target="selectAll" data-action="change->table-selection#toggleAll">
+            </th>
+          <% end %>
+          <th class="<%= 'ps-4' unless show_toolbar %>"><%= t('home.col_inventory') %></th>
+          <th><%= t('home.col_category') %></th>
+          <th><%= t('home.col_creator') %></th>
+          <th class="text-end pe-4"><%= t('home.col_items') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if inventories.empty? %>
+          <tr>
+            <td colspan="<%= show_toolbar ? 5 : 4 %>" class="empty-state-box">
+              <div class="empty-state-icon">
+                <i class="bi bi-folder2-open"></i>
+              </div>
+              <div class="fw-semibold text-body mb-1"><%= t('common.no_inventories') %></div>
+              <div class="text-secondary small"><%= t('home.latest_subtitle') %></div>
+            </td>
+          </tr>
+        <% else %>
+          <% inventories.each do |inventory| %>
+            <tr data-url="<%= allow_delete ? inventory_path(inventory, tab: 'settings') : inventory_path(inventory) %>">
+              <% if show_toolbar %>
+                <td class="ps-4">
+                  <input type="checkbox" class="form-check-input" value="<%= inventory.id %>" data-table-selection-target="rowCheckbox" data-action="change->table-selection#toggleRow">
+                </td>
+              <% end %>
+              <td class="<%= 'ps-4' unless show_toolbar %>">
+                <div class="d-flex align-items-start gap-3">
+                  <%= link_to inventory_path(inventory), class: "d-none d-sm-inline-block flex-shrink-0 text-decoration-none" do %>
+                    <% if inventory.image_url.present? %>
+                      <img src="<%= inventory.image_url %>"
+                           alt=""
+                           class="inventory-thumb-img border shadow-sm"
+                           loading="lazy"
+                           onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
+                      <div class="inventory-icon-box d-none">
+                        <i class="bi <%= category_icon_class(inventory.category.name) %> fs-4"></i>
+                      </div>
+                    <% else %>
+                      <div class="inventory-icon-box">
+                        <i class="bi <%= category_icon_class(inventory.category.name) %> fs-4"></i>
+                      </div>
+                    <% end %>
+                  <% end %>
+
+                  <div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                      <%= link_to inventory.title, inventory_path(inventory), class: "fw-semibold text-body text-decoration-underline" %>
+                      <span class="badge bg-body-tertiary text-secondary border font-mono" style="font-size: 0.7rem;">
+                        <%= inventory_id_preview(inventory) %>
+                      </span>
+                      <% if inventory.is_public? %>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.68rem;">
+                          <%= t('common.public') %>
+                        </span>
+                      <% end %>
+                    </div>
+                    <div class="text-secondary small markdown-excerpt">
+                      <%= render_markdown(inventory.description) %>
+                    </div>
+                    <% if inventory.tags.any? %>
+                      <div class="d-flex flex-wrap gap-1 mt-1.5">
+                        <% inventory.tags.each do |tag| %>
+                          <%= link_to "##{tag.name}", search_path(tag: tag.name), class: "badge bg-body-tertiary text-secondary border text-decoration-none fw-normal rounded-pill px-2" %>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-body-secondary text-body border fw-medium rounded-pill px-2.5 py-1">
+                  <i class="bi <%= category_icon_class(inventory.category.name) %> me-1 text-primary"></i><%= localized_category_name(inventory.category) %>
+                </span>
+              </td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="avatar-circle"><%= user_initials(inventory.creator.name) %></span>
+                  <div>
+                    <%= link_to inventory.creator.name, user_path(inventory.creator), class: "text-decoration-none fw-medium small d-block text-body" %>
+                    <span class="text-secondary font-mono" style="font-size: 0.72rem;"><%= localized_time_ago(inventory.created_at) %></span>
+                  </div>
+                </div>
+              </td>
+              <td class="text-end pe-4">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-mono px-2.5 py-1"><%= inventory.items_count %></span>
+              </td>
+            </tr>
+          <% end %>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

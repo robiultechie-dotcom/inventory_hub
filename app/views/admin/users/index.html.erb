@@ -1,0 +1,171 @@
+<%
+  total_users   = @users.size
+  admin_count   = @users.count(&:admin?)
+  blocked_count = @users.count(&:blocked?)
+%>
+
+<!-- 2026 Admin Governance Bento Header -->
+<div class="card hero-bento-card mb-4">
+  <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <span class="brand-logo-box" style="width: 48px; height: 48px; background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);">
+        <i class="bi bi-shield-lock-fill fs-4"></i>
+      </span>
+      <div>
+        <h1 class="h4 fw-bold mb-1" style="letter-spacing: -0.02em;"><%= t('admin.title') %></h1>
+        <p class="text-secondary small mb-0"><%= t('admin.subtitle') %></p>
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2.5">
+      <div class="bento-stat-card py-2 px-3 bg-body">
+        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('admin.col_user') %></span>
+        <span class="fw-bold font-mono fs-5 text-primary"><%= total_users %></span>
+      </div>
+      <div class="bento-stat-card py-2 px-3 bg-body">
+        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('admin.role_admin') %></span>
+        <span class="fw-bold font-mono fs-5 text-danger"><%= admin_count %></span>
+      </div>
+      <div class="bento-stat-card py-2 px-3 bg-body">
+        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('admin.status_blocked') %></span>
+        <span class="fw-bold font-mono fs-5"><%= blocked_count %></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Users Table with Context Toolbar (Section 2 & 3) -->
+<div class="card overflow-hidden" data-controller="table-selection">
+  <%= form_with url: bulk_action_admin_users_path, method: :post, data: { table_selection_target: "form" }, class: "d-none" do %>
+    <input type="hidden" name="operation" value="" data-table-selection-target="operationInput">
+    <div data-table-selection-target="idsContainer"></div>
+  <% end %>
+
+  <div data-table-selection-target="toolbar" class="context-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span data-table-selection-target="counter" data-label="<%= t('home.toolbar_selected') %>" class="badge text-bg-secondary rounded-pill font-mono px-2.5 py-1">
+      0 <%= t('home.toolbar_selected') %>
+    </span>
+
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <button type="button"
+              data-table-selection-target="singleAction"
+              data-action="click->table-selection#openSelected"
+              class="btn btn-sm btn-outline-primary rounded-3"
+              disabled>
+        <i class="bi bi-person-lines-fill me-1"></i><%= t('common.open') %>
+      </button>
+
+      <button type="button"
+              data-table-selection-target="bulkAction"
+              data-action="click->table-selection#submitOperation"
+              data-operation="block"
+              class="btn btn-sm btn-outline-warning rounded-3"
+              disabled>
+        <i class="bi bi-slash-circle me-1"></i><%= t('admin.block') %>
+      </button>
+
+      <button type="button"
+              data-table-selection-target="bulkAction"
+              data-action="click->table-selection#submitOperation"
+              data-operation="unblock"
+              class="btn btn-sm btn-outline-success rounded-3"
+              disabled>
+        <i class="bi bi-check-circle me-1"></i><%= t('admin.unblock') %>
+      </button>
+
+      <button type="button"
+              data-table-selection-target="bulkAction"
+              data-action="click->table-selection#submitOperation"
+              data-operation="make_admin"
+              class="btn btn-sm btn-outline-primary rounded-3"
+              disabled>
+        <i class="bi bi-shield-plus me-1"></i><%= t('admin.make_admin') %>
+      </button>
+
+      <button type="button"
+              data-table-selection-target="bulkAction"
+              data-action="click->table-selection#submitOperation"
+              data-operation="remove_admin"
+              class="btn btn-sm btn-outline-secondary rounded-3"
+              disabled>
+        <i class="bi bi-shield-minus me-1"></i><%= t('admin.remove_admin') %>
+      </button>
+
+      <button type="button"
+              data-table-selection-target="bulkAction"
+              data-action="click->table-selection#submitOperation"
+              data-operation="delete"
+              data-confirm-message="<%= t('admin.confirm_delete') %>"
+              class="btn btn-sm btn-outline-danger rounded-3"
+              disabled>
+        <i class="bi bi-trash3 me-1"></i><%= t('common.delete') %>
+      </button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-enterprise align-middle mb-0">
+      <thead>
+        <tr>
+          <th class="ps-4" style="width: 44px;">
+            <input type="checkbox" class="form-check-input" data-table-selection-target="selectAll" data-action="change->table-selection#toggleAll">
+          </th>
+          <th><%= t('admin.col_user') %></th>
+          <th><%= t('auth.email') %></th>
+          <th><%= t('admin.col_role') %></th>
+          <th><%= t('admin.col_status') %></th>
+          <th class="text-end pe-4"><%= t('home.stats_inventories') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @users.each do |user| %>
+          <tr data-url="<%= user_path(user) %>">
+            <td class="ps-4">
+              <input type="checkbox" class="form-check-input" value="<%= user.id %>" data-table-selection-target="rowCheckbox" data-action="change->table-selection#toggleRow">
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2.5">
+                <span class="avatar-circle"><%= user_initials(user.name) %></span>
+                <div>
+                  <div class="d-flex align-items-center gap-1.5">
+                    <%= link_to user.name, user_path(user), class: "fw-semibold text-body text-decoration-underline" %>
+                    <% if user.id == current_user.id %>
+                      <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.68rem;"><%= t('admin.you_badge') %></span>
+                    <% end %>
+                  </div>
+                  <span class="text-secondary font-mono d-block" style="font-size: 0.72rem;"><%= localized_time_ago(user.created_at) %></span>
+                </div>
+              </div>
+            </td>
+            <td class="font-mono small text-secondary"><%= user.email %></td>
+            <td>
+              <% if user.admin? %>
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1">
+                  <i class="bi bi-shield-lock-fill me-1"></i><%= t('admin.role_admin') %>
+                </span>
+              <% else %>
+                <span class="badge bg-body-secondary text-secondary border rounded-pill px-2.5 py-1">
+                  <%= t('admin.role_user') %>
+                </span>
+              <% end %>
+            </td>
+            <td>
+              <% if user.blocked? %>
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2.5 py-1">
+                  <i class="bi bi-slash-circle me-1"></i><%= t('admin.status_blocked') %>
+                </span>
+              <% else %>
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1">
+                  <i class="bi bi-check-circle-fill me-1"></i><%= t('admin.status_active') %>
+                </span>
+              <% end %>
+            </td>
+            <td class="text-end pe-4">
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-mono px-2.5 py-1"><%= @owned_counts[user.id] || 0 %></span>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

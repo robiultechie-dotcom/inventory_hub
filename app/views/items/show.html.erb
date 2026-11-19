@@ -1,0 +1,120 @@
+<%
+  can_write = @inventory.writable_by?(current_user)
+  liked = current_user && @item.likes.exists?(user_id: current_user.id)
+%>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0 small">
+      <li class="breadcrumb-item"><%= link_to t('home.stats_inventories'), root_path, class: "text-decoration-none" %></li>
+      <li class="breadcrumb-item"><%= link_to @inventory.title, inventory_path(@inventory, tab: "items"), class: "text-decoration-none" %></li>
+      <li class="breadcrumb-item active font-mono fw-semibold" aria-current="page"><%= @item.custom_id %></li>
+    </ol>
+  </nav>
+
+  <div class="d-flex align-items-center gap-2">
+    <%= link_to inventory_path(@inventory, tab: "items"), class: "btn btn-sm btn-outline-secondary rounded-3" do %>
+      <i class="bi bi-arrow-left me-1"></i><%= t('common.back') %>
+    <% end %>
+    <% if can_write %>
+      <%= link_to edit_inventory_item_path(@inventory, @item), class: "btn btn-sm btn-primary fw-semibold rounded-3 px-3 shadow-sm" do %>
+        <i class="bi bi-pencil-square me-1"></i><%= t('common.edit') %>
+      <% end %>
+    <% end %>
+  </div>
+</div>
+
+<div class="card hero-bento-card mb-4">
+  <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono px-2.5 py-1.5 fs-6">
+          <%= @item.custom_id %>
+        </span>
+        <span class="badge bg-body-tertiary text-secondary border font-mono">v<%= @item.lock_version %></span>
+      </div>
+      <h1 class="h4 fw-bold mb-1"><%= @item.primary_label %></h1>
+      <div class="d-flex flex-wrap align-items-center gap-2 text-secondary small">
+        <span class="avatar-circle" style="width: 22px; height: 22px; font-size: 0.65rem;"><%= user_initials(@item.created_by.name) %></span>
+        <span><%= t('inventory.created_by') %> <%= link_to @item.created_by.name, user_path(@item.created_by), class: "fw-semibold text-body text-decoration-underline" %></span>
+        <span>&bull;</span>
+        <span class="font-mono"><%= @item.created_at.strftime("%Y-%m-%d %H:%M") %> (<%= localized_time_ago(@item.created_at) %>)</span>
+      </div>
+    </div>
+
+    <div>
+      <% if current_user %>
+        <%= button_to toggle_like_inventory_item_path(@inventory, @item),
+              method: :post,
+              class: "btn #{liked ? 'btn-danger shadow-sm' : 'btn-outline-danger'} rounded-pill px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2" do %>
+          <i class="bi <%= liked ? 'bi-heart-fill' : 'bi-heart' %>"></i>
+          <span><%= t('common.likes') %></span>
+          <span class="badge bg-body text-body rounded-pill font-mono ms-1"><%= @item.likes_count %></span>
+        <% end %>
+      <% else %>
+        <span class="badge bg-body-secondary text-body border rounded-pill px-3.5 py-2 font-mono fs-6">
+          <i class="bi bi-heart-fill text-danger me-1.5"></i><%= @item.likes_count %> <%= t('common.likes') %>
+        </span>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<div class="card p-4">
+  <div class="row g-4">
+    <% if @active_fields.empty? %>
+      <div class="col-12 empty-state-box py-4">
+        <div class="text-secondary small"><%= t('common.no_items') %></div>
+      </div>
+    <% else %>
+      <% @active_fields.each do |field| %>
+        <% val = @item.public_send(field[:value_column]) %>
+        <div class="<%= field[:type] == 'text' || field[:type] == 'link' ? 'col-12' : 'col-md-6' %>">
+          <div class="p-3.5 rounded-3 border bg-body-tertiary h-100">
+            <div class="d-flex justify-content-between align-items-center mb-1.5">
+              <span class="modern-label text-secondary mb-0"><%= field[:name] %></span>
+              <% if field[:description].present? %>
+                <span class="text-secondary small"><i class="bi bi-info-circle me-1"></i><%= field[:description] %></span>
+              <% end %>
+            </div>
+
+            <% case field[:type] %>
+            <% when "bool" %>
+              <div class="d-flex align-items-center gap-2 mt-1">
+                <input type="checkbox" class="form-check-input mt-0" <%= "checked" if val %> disabled>
+                <span class="fw-semibold small"><%= val ? t('common.true_yes') : t('common.false_no') %></span>
+              </div>
+            <% when "text" %>
+              <div class="markdown-excerpt small text-body mt-1">
+                <%= val.present? ? render_markdown(val.to_s) : "—" %>
+              </div>
+            <% when "link" %>
+              <% if val.present? %>
+                <div class="mt-2">
+                  <%= link_to val.to_s, val.to_s, target: "_blank", rel: "noopener noreferrer", class: "btn btn-sm btn-outline-primary rounded-3 mb-2 font-mono" do %>
+                    <i class="bi bi-box-arrow-up-right me-1"></i><%= truncate(val.to_s, length: 60) %>
+                  <% end %>
+                  <% if val.to_s.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || val.to_s.include?("images.unsplash.com") || val.to_s.include?("iili.io") %>
+                    <div class="mt-2">
+                      <img src="<%= val %>" alt="<%= field[:name] %>" class="rounded-3 border shadow-sm object-fit-cover" style="max-height: 260px; max-width: 100%;">
+                    </div>
+                  <% elsif val.to_s.match?(/\.pdf(\?.*)?$/i) %>
+                    <div class="mt-2 ratio ratio-16x9 rounded-3 overflow-hidden border">
+                      <iframe src="<%= val %>" title="<%= field[:name] %>" loading="lazy"></iframe>
+                    </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <span class="text-secondary">—</span>
+              <% end %>
+            <% else %>
+              <div class="fw-semibold fs-6 <%= 'font-mono text-primary' if field[:type] == 'int' %>">
+                <%= val.presence || "—" %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

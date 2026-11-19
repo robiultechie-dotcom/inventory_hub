@@ -1,10 +1,510 @@
-/*
- * This is a manifest file that'll be compiled into application.css.
- *
- * With Propshaft, assets are served efficiently without preprocessing steps. You can still include
- * application-wide styles in this file, but keep in mind that CSS precedence will follow the standard
- * cascading order, meaning styles declared later in the document or manifest will override earlier ones,
- * depending on specificity.
- *
- * Consider organizing styles into separate files for maintainability.
- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bs-body-font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --bs-font-monospace: 'JetBrains Mono', monospace;
+  --bs-primary: #4f46e5;
+  --bs-primary-rgb: 79, 70, 229;
+  --bs-border-radius: 0.75rem;
+  --bs-border-radius-lg: 1rem;
+  --saas-surface-elevated: #ffffff;
+  --saas-surface-subtle: #f8fafc;
+  --saas-border: #e2e8f0;
+  --saas-input-border: #cbd5e1;
+  --saas-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --saas-shadow-md: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --saas-hero-gradient: radial-gradient(120% 120% at 0% 0%, rgba(79, 70, 229, 0.07) 0%, rgba(14, 165, 233, 0.03) 55%, transparent 100%);
+}
+
+html[data-bs-theme="light"],
+body[data-bs-theme="light"] {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-bs-theme="dark"],
+body[data-bs-theme="dark"] {
+  --bs-primary: #6366f1;
+  --bs-primary-rgb: 99, 102, 241;
+  --saas-surface-elevated: #111827;
+  --saas-surface-subtle: #0b0f19;
+  --saas-border: #1e293b;
+  --saas-input-border: #334155;
+  --saas-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --saas-shadow-md: 0 12px 28px -6px rgba(0, 0, 0, 0.55);
+  --saas-hero-gradient: radial-gradient(120% 120% at 0% 0%, rgba(99, 102, 241, 0.16) 0%, rgba(14, 165, 233, 0.06) 55%, transparent 100%);
+  background-color: #070a12 !important;
+  color: #f8fafc !important;
+}
+
+body {
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Fractional Spacing Utilities */
+.gap-1\.5 { gap: 0.375rem !important; }
+.gap-2\.5 { gap: 0.65rem !important; }
+.gap-3\.5 { gap: 1.15rem !important; }
+.p-2\.5  { padding: 0.65rem !important; }
+.p-3\.5  { padding: 1.1rem !important; }
+.px-2\.5 { padding-left: 0.65rem !important; padding-right: 0.65rem !important; }
+.px-3\.5 { padding-left: 1.1rem !important; padding-right: 1.1rem !important; }
+.py-0\.5 { padding-top: 0.15rem !important; padding-bottom: 0.15rem !important; }
+.py-1\.5 { padding-top: 0.38rem !important; padding-bottom: 0.38rem !important; }
+.py-2\.5 { padding-top: 0.65rem !important; padding-bottom: 0.65rem !important; }
+.py-3\.5 { padding-top: 1.1rem !important; padding-bottom: 1.1rem !important; }
+.mb-1\.5 { margin-bottom: 0.38rem !important; }
+.mb-2\.5 { margin-bottom: 0.65rem !important; }
+.mt-1\.5 { margin-top: 0.38rem !important; }
+.me-1\.5 { margin-right: 0.42rem !important; }
+.ms-0\.5 { margin-left: 0.2rem !important; }
+.ps-1\.5 { padding-left: 0.38rem !important; }
+
+/* Glassmorphic Sticky Navbar */
+.navbar-glass {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--saas-border) !important;
+}
+
+html[data-bs-theme="dark"] .navbar-glass {
+  background-color: rgba(17, 24, 39, 0.86) !important;
+}
+
+.brand-logo-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.65rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.28);
+  flex-shrink: 0;
+}
+
+/* Cards & Surfaces */
+.card {
+  background-color: var(--saas-surface-elevated);
+  border: 1px solid var(--saas-border) !important;
+  border-radius: 0.95rem;
+  box-shadow: var(--saas-shadow-sm);
+}
+
+.hero-bento-card {
+  background-image: var(--saas-hero-gradient);
+  border-radius: 1.1rem;
+}
+
+.bento-stat-card {
+  background-color: var(--saas-surface-subtle);
+  border: 1px solid var(--saas-border);
+  border-radius: 0.85rem;
+  padding: 1rem 1.15rem;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.bento-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--bs-primary-rgb), 0.4);
+}
+
+.stat-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 0.65rem;
+  background-color: rgba(var(--bs-primary-rgb), 0.12);
+  color: var(--bs-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Modals, Inputs & Crisp Checkboxes */
+.modal-modern {
+  background-color: var(--saas-surface-elevated);
+  border: 1px solid var(--saas-border) !important;
+  border-radius: 1.15rem !important;
+  box-shadow: var(--saas-shadow-md);
+  overflow: hidden;
+}
+
+.modern-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.35rem;
+  color: var(--bs-body-color);
+}
+
+.modern-input,
+.form-control,
+.form-select {
+  border-radius: 0.6rem;
+  border: 1px solid var(--saas-input-border);
+  padding: 0.48rem 0.8rem;
+  font-size: 0.88rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modern-input:focus,
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.16);
+}
+
+.form-check-input {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1.5px solid #94a3b8 !important;
+  cursor: pointer;
+}
+
+.form-check-input:checked {
+  background-color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+}
+
+/* Fix Bug 2.2: Command Search Wrapper without overlapping TomSelect caret */
+.search-command-wrapper {
+  position: relative;
+}
+
+.search-command-wrapper .ts-wrapper.single .ts-control::after {
+  display: none !important;
+}
+
+.search-command-wrapper .ts-control {
+  border-radius: 999px !important;
+  border: 1px solid var(--saas-input-border) !important;
+  padding: 0.38rem 2.4rem 0.38rem 0.95rem !important;
+  min-height: 36px !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.search-kbd-hint {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.7rem;
+  padding: 0.08rem 0.42rem;
+  border-radius: 0.35rem;
+  background-color: var(--bs-tertiary-bg);
+  border: 1px solid var(--saas-border);
+  color: var(--bs-secondary-color);
+  z-index: 4;
+}
+
+/* Fix Bug 2.1 & 2.4: Animated Appearing Context Action for Likes (No static row button) */
+.like-reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.24rem 0.62rem;
+  border-radius: 999px;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--bs-secondary-color);
+  user-select: none;
+  transition: all 0.18s ease;
+}
+
+.like-reaction-pill.is-liked {
+  color: #e11d48;
+}
+
+.table-enterprise tbody tr:hover .like-reaction-pill[data-interactive="true"] {
+  cursor: pointer;
+  border-color: var(--saas-input-border);
+  background-color: var(--saas-surface-subtle);
+}
+
+.table-enterprise tbody tr:hover .like-reaction-pill[data-interactive="true"]:hover {
+  border-color: #f43f5e;
+  color: #e11d48;
+  background-color: rgba(244, 63, 94, 0.1);
+  transform: translateY(-1px);
+}
+
+@keyframes likePop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.24); }
+  100% { transform: scale(1); }
+}
+
+.like-pop-anim {
+  animation: likePop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Ready-Made Dropzone.js Enterprise Styling */
+.cloud-dropzone.dropzone {
+  min-height: 118px !important;
+  border: 1.5px dashed rgba(var(--bs-primary-rgb), 0.4) !important;
+  border-radius: 0.85rem !important;
+  background-color: var(--saas-surface-subtle) !important;
+  padding: 1rem !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.cloud-dropzone.dropzone:hover,
+.cloud-dropzone.dropzone.dz-drag-hover {
+  border-color: var(--bs-primary) !important;
+  background-color: rgba(var(--bs-primary-rgb), 0.06) !important;
+}
+
+.cloud-dropzone.dropzone .dz-message {
+  margin: 0 !important;
+}
+
+.cloud-dropzone.dropzone .dz-preview {
+  margin: 0.25rem !important;
+  min-height: 70px !important;
+}
+
+.id-list-drag-outside {
+  border-color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+
+/* Enterprise Tables & Context Toolbars (Section 2) */
+.table > thead,
+.table > thead.table-light {
+  --bs-table-bg: var(--saas-surface-subtle);
+  --bs-table-color: var(--bs-secondary-color);
+}
+
+.table > thead th {
+  background-color: var(--saas-surface-subtle) !important;
+  color: var(--bs-secondary-color) !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: 0.82rem;
+  padding-bottom: 0.82rem;
+  border-bottom: 1px solid var(--saas-border);
+}
+
+.table-enterprise tbody td {
+  padding-top: 0.88rem;
+  padding-bottom: 0.88rem;
+  border-bottom-color: var(--saas-border);
+}
+
+.table-enterprise tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.context-toolbar {
+  padding: 0.75rem 1.15rem;
+  border-bottom: 1px solid var(--saas-border);
+  background-color: var(--saas-surface-subtle);
+  transition: background-color 0.18s ease;
+}
+
+.context-toolbar.active-selection {
+  background-color: rgba(var(--bs-primary-rgb), 0.09);
+}
+
+.table-enterprise tbody tr.row-selected > * {
+  background-color: rgba(var(--bs-primary-rgb), 0.07) !important;
+}
+
+/* Modern Navigation Tabs */
+.nav-tabs-modern {
+  border-bottom: 1px solid var(--saas-border);
+  gap: 0.4rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.nav-tabs-modern::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-tabs-modern .nav-link {
+  border: 0 !important;
+  border-bottom: 2.5px solid transparent !important;
+  border-radius: 0.55rem 0.55rem 0 0;
+  color: var(--bs-secondary-color);
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 0.68rem 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-tabs-modern .nav-link:hover {
+  color: var(--bs-body-color);
+  background-color: var(--saas-surface-subtle);
+}
+
+.nav-tabs-modern .nav-link.active {
+  color: var(--bs-primary) !important;
+  background-color: transparent !important;
+  border-bottom: 2.5px solid var(--bs-primary) !important;
+  font-weight: 600;
+}
+
+/* Thumbnails, Avatars & Badges */
+.inventory-thumb-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 0.65rem;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.inventory-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 0.65rem;
+  background: linear-gradient(135deg, rgba(var(--bs-primary-rgb), 0.14) 0%, rgba(var(--bs-primary-rgb), 0.06) 100%);
+  color: var(--bs-primary);
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.22);
+}
+
+.rank-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rank-badge-1 {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+}
+
+.rank-badge-2 {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--bs-body-color);
+  border: 1px solid var(--saas-border);
+}
+
+.empty-state-box {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background-color: rgba(var(--bs-primary-rgb), 0.1);
+  color: var(--bs-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.font-mono,
+code,
+.badge {
+  font-family: var(--bs-font-monospace);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "zero" 0;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-primary:hover,
+.btn-outline-danger:hover {
+  background-color: var(--bs-btn-hover-bg) !important;
+  color: var(--bs-btn-hover-color) !important;
+}
+
+.markdown-excerpt p {
+  margin-bottom: 0;
+}
+
+.tag-pill-cloud {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.78rem;
+  border: 1px solid var(--saas-border);
+  background-color: var(--saas-surface-subtle);
+  color: var(--bs-body-color);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.tag-pill-cloud:hover {
+  border-color: var(--bs-primary);
+  background-color: rgba(var(--bs-primary-rgb), 0.08);
+  color: var(--bs-primary);
+  transform: translateY(-1px);
+}
+
+.tag-weight-5 { font-size: 0.92rem; font-weight: 700; }
+.tag-weight-4 { font-size: 0.86rem; font-weight: 600; }
+.tag-weight-3 { font-size: 0.82rem; font-weight: 500; }
+.tag-weight-2 { font-size: 0.78rem; font-weight: 500; }
+.tag-weight-1 { font-size: 0.74rem; font-weight: 400; }
+
+[data-bs-theme="dark"] .ts-control,
+[data-bs-theme="dark"] .ts-dropdown,
+[data-bs-theme="dark"] .EasyMDEContainer .CodeMirror,
+[data-bs-theme="dark"] .editor-toolbar {
+  background-color: var(--saas-surface-subtle) !important;
+  border-color: var(--saas-border) !important;
+  color: var(--bs-body-color) !important;
+}
+
+[data-bs-theme="dark"] .ts-control input,
+[data-bs-theme="dark"] .ts-dropdown .option,
+[data-bs-theme="dark"] .editor-toolbar button {
+  color: var(--bs-body-color) !important;
+}
+
+[data-bs-theme="dark"] .ts-dropdown .active {
+  background-color: rgba(var(--bs-primary-rgb), 0.25) !important;
+}

@@ -1,0 +1,26 @@
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; color: #0f172a;">
+  <div style="margin-bottom: 20px;">
+    <span style="display: inline-block; padding: 8px 14px; background: #4f46e5; color: #ffffff; border-radius: 8px; font-weight: 700; font-size: 16px;">
+      InventoryHub
+    </span>
+  </div>
+
+  <h2 style="font-size: 20px; font-weight: 700; margin: 0 0 12px;">Verify your email address</h2>
+
+  <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 24px;">
+    Hello <strong><%= @user.name %></strong>,<br>
+    Thank you for registering on InventoryHub. Please confirm your email address by clicking the button below:
+  </p>
+
+  <div style="margin: 28px 0;">
+    <a href="<%= @confirmation_url %>"
+       style="display: inline-block; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px;">
+      Confirm Email Address
+    </a>
+  </div>
+
+  <p style="font-size: 12px; line-height: 1.5; color: #64748b; margin: 24px 0 0; word-break: break-all;">
+    If the button above does not work, copy and paste this link into your browser:<br>
+    <a href="<%= @confirmation_url %>" style="color: #4f46e5;"><%= @confirmation_url %></a>
+  </p>
+</div>

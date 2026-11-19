@@ -1,0 +1,686 @@
+<%
+  can_manage = @inventory.manageable_by?(current_user)
+  can_write  = @inventory.writable_by?(current_user)
+  primary_link_field = @table_fields.find { |f| f[:type] == "string" } || @table_fields.first
+
+  tabs = [
+    ["items",      "bi-table",                    "#{t('inventory.tabs.items')} (#{@inventory.items_count})", true],
+    ["discussion", "bi-chat-dots",                "#{t('inventory.tabs.discussion')} (#{@comments.size})", true],
+    ["settings",   "bi-sliders",                  t('inventory.tabs.settings'), can_manage],
+    ["custom_id",  "bi-upc-scan",                 t('inventory.tabs.custom_id'), can_manage],
+    ["fields",     "bi-input-cursor-text",        "#{t('inventory.tabs.fields')} (#{@inventory.active_custom_fields.size})", can_manage],
+    ["access",     "bi-shield-check",             t('inventory.tabs.access'), can_manage],
+    ["stats",      "bi-bar-chart-line",           t('inventory.tabs.stats'), can_manage],
+    ["export",     "bi-file-earmark-spreadsheet", t('inventory.tabs.export'), can_manage]
+  ]
+%>
+
+<div data-controller="inventory-workspace">
+  <div data-inventory-workspace-target="conflictBanner" class="alert alert-danger d-none shadow-sm rounded-3 border-0 mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="d-flex align-items-center">
+      <i class="bi bi-exclamation-octagon-fill fs-5 me-2"></i>
+      <strong data-inventory-workspace-target="conflictMessage"><%= t('inventory.conflict_msg') %></strong>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" data-action="click->inventory-workspace#reloadWorkspace" class="btn btn-sm btn-outline-danger bg-body fw-semibold rounded-3">
+        <i class="bi bi-arrow-clockwise me-1"></i><%= t('inventory.reload_latest') %>
+      </button>
+      <button type="button" data-action="click->inventory-workspace#forceOverwrite" class="btn btn-sm btn-danger fw-semibold rounded-3">
+        <i class="bi bi-cloud-upload me-1"></i><%= t('inventory.overwrite_retry') %>
+      </button>
+    </div>
+  </div>
+
+  <div class="card hero-bento-card mb-4">
+    <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div class="d-flex align-items-start gap-3">
+        <img data-inventory-workspace-target="headerImage"
+             src="<%= @inventory.image_url %>"
+             alt=""
+             class="rounded-3 border object-fit-cover shadow-sm flex-shrink-0 <%= 'd-none' if @inventory.image_url.blank? %>"
+             style="width: 72px; height: 72px;"
+             onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
+
+        <div data-inventory-workspace-target="headerIcon"
+             class="inventory-icon-box flex-shrink-0 <%= 'd-none' if @inventory.image_url.present? %>"
+             style="width: 72px; height: 72px;">
+          <i class="bi <%= category_icon_class(@inventory.category.name) %> fs-3"></i>
+        </div>
+
+        <div>
+          <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+            <h1 class="h4 fw-bold mb-0" style="letter-spacing: -0.02em;"><%= @inventory.title %></h1>
+            <% if can_manage %>
+              <span id="autoSaveBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
+                <i class="bi bi-cloud-check-fill me-1"></i><%= t('common.saved_badge') %>
+              </span>
+            <% end %>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2 text-secondary small mb-2">
+            <span class="badge bg-body-secondary text-body border rounded-pill px-3 py-1">
+              <i class="bi <%= category_icon_class(@inventory.category.name) %> me-1 text-primary"></i><%= localized_category_name(@inventory.category) %>
+            </span>
+            <span>&bull;</span>
+            <span><%= t('inventory.created_by') %> <%= link_to @inventory.creator.name, user_path(@inventory.creator), class: "fw-semibold text-body text-decoration-underline" %></span>
+            <% if can_manage %>
+              <span>&bull;</span>
+              <span class="badge bg-body-tertiary text-secondary border font-mono">v<span id="headerLockVersion"><%= @inventory.lock_version %></span></span>
+            <% end %>
+            <span class="badge rounded-pill px-3 py-1 <%= @inventory.is_public? ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle' %>">
+              <i class="bi <%= @inventory.is_public? ? 'bi-globe2' : 'bi-lock-fill' %> me-1"></i><%= @inventory.is_public? ? t('common.public') : t('common.restricted') %>
+            </span>
+          </div>
+
+          <div class="text-secondary small markdown-excerpt"><%= render_markdown(@inventory.description) %></div>
+
+          <% if @inventory.tags.any? %>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <% @inventory.tags.each do |tag| %>
+                <%= link_to search_path(tag: tag.name), class: "tag-pill-cloud tag-weight-1" do %>
+                  <span class="text-primary">#</span><%= tag.name %>
+                <% end %>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <% if can_write %>
+        <%= link_to new_inventory_item_path(@inventory), class: "btn btn-primary btn-sm fw-semibold px-3 py-2 rounded-3 shadow-sm" do %>
+          <i class="bi bi-plus-lg me-1"></i><%= t('inventory.add_item') %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs nav-tabs-modern mb-4 flex-nowrap">
+    <% tabs.each do |key, icon, label, visible| %>
+      <% next unless visible %>
+      <li class="nav-item">
+        <%= link_to inventory_path(@inventory, tab: key),
+              data: (can_manage ? { action: "click->inventory-workspace#flushBeforeTabChange" } : {}),
+              class: "nav-link text-nowrap #{'active' if @active_tab == key}" do %>
+          <i class="bi <%= icon %>"></i>
+          <span><%= label %></span>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+
+  <% if @active_tab == "items" %>
+    <div class="card overflow-hidden" data-controller="table-selection">
+      <div data-table-selection-target="toolbar" class="context-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <% if current_user %>
+          <%= form_with url: bulk_destroy_inventory_items_path(@inventory), method: :delete, data: { table_selection_target: "form" }, class: "d-none" do %>
+            <div data-table-selection-target="idsContainer"></div>
+          <% end %>
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span data-table-selection-target="counter" data-label="<%= t('home.toolbar_selected') %>" class="badge text-bg-secondary rounded-pill font-mono px-3 py-1">
+              0 <%= t('home.toolbar_selected') %>
+            </span>
+            <button type="button" data-table-selection-target="singleAction" data-action="click->table-selection#openSelected" class="btn btn-sm btn-outline-primary rounded-3" disabled>
+              <i class="bi <%= can_write ? 'bi-pencil-square' : 'bi-box-arrow-up-right' %> me-1"></i><%= can_write ? t('common.edit') : t('common.open') %>
+            </button>
+            <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#likeSelected" class="btn btn-sm btn-outline-danger rounded-3" disabled>
+              <i class="bi bi-heart-fill me-1"></i><%= t('common.like_toggle') %>
+            </button>
+            <% if can_write %>
+              <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#submitBulk" data-confirm-message="<%= t('items.confirm_delete') %>" class="btn btn-sm btn-outline-danger rounded-3" disabled>
+                <i class="bi bi-trash3 me-1"></i><%= t('common.delete') %>
+              </button>
+            <% end %>
+          </div>
+        <% else %>
+          <span class="badge bg-body-secondary text-secondary border rounded-pill px-3 py-1">
+            <i class="bi bi-eye me-1"></i><%= t('common.read_only') %>
+          </span>
+        <% end %>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+          <div class="input-group input-group-sm" style="width: 230px;">
+            <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-funnel"></i></span>
+            <input type="search"
+                   data-inventory-workspace-target="itemFilterInput"
+                   data-action="input->inventory-workspace#filterAndSortItems"
+                   class="form-control border-start-0 ps-0"
+                   placeholder="<%= t('workspace.filter_placeholder') %>">
+          </div>
+          <select data-inventory-workspace-target="itemSortSelect"
+                  data-action="change->inventory-workspace#filterAndSortItems"
+                  class="form-select form-select-sm"
+                  style="width: 155px;">
+            <option value="newest"><%= t('workspace.sort_newest') %></option>
+            <option value="oldest"><%= t('workspace.sort_oldest') %></option>
+            <option value="id_asc">ID (A-Z)</option>
+            <option value="id_desc">ID (Z-A)</option>
+            <option value="likes_desc"><%= t('common.likes') %></option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover table-enterprise align-middle mb-0">
+          <thead>
+            <tr>
+              <% if current_user %>
+                <th class="ps-4" style="width: 44px;">
+                  <input type="checkbox" class="form-check-input" data-table-selection-target="selectAll" data-action="change->table-selection#toggleAll">
+                </th>
+              <% end %>
+              <th class="<%= 'ps-4' unless current_user %>">ID</th>
+              <% @table_fields.each do |field| %><th><%= field[:name] %></th><% end %>
+              <th><%= t('home.col_creator') %></th>
+              <th class="text-end pe-4"><%= t('common.likes') %></th>
+            </tr>
+          </thead>
+          <tbody data-inventory-workspace-target="itemsTableBody">
+            <% if @items.empty? %>
+              <tr>
+                <td colspan="<%= @table_fields.size + (current_user ? 4 : 3) %>" class="empty-state-box">
+                  <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
+                  <div class="fw-semibold text-body mb-1"><%= t('common.no_items') %></div>
+                  <% if can_write %>
+                    <div class="mt-2">
+                      <%= link_to new_inventory_item_path(@inventory), class: "btn btn-sm btn-primary rounded-3 px-3" do %>
+                        <i class="bi bi-plus-lg me-1"></i><%= t('inventory.add_item') %>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </td>
+              </tr>
+            <% else %>
+              <% @items.each do |item| %>
+                <% target_url = can_write ? edit_inventory_item_path(@inventory, item) : inventory_item_path(@inventory, item) %>
+                <% like_url   = toggle_like_inventory_item_path(@inventory, item) %>
+                <% liked      = @liked_item_ids.include?(item.id) %>
+                <tr data-item-row="true"
+                    data-url="<%= target_url %>"
+                    data-like-url="<%= like_url %>"
+                    data-search-text="<%= item.search_index_text %>"
+                    data-custom-id="<%= item.custom_id.downcase %>"
+                    data-created="<%= item.created_at.to_i %>"
+                    data-likes="<%= item.likes_count %>">
+                  <% if current_user %>
+                    <td class="ps-4">
+                      <input type="checkbox" class="form-check-input" value="<%= item.id %>" data-table-selection-target="rowCheckbox" data-action="change->table-selection#toggleRow">
+                    </td>
+                  <% end %>
+                  <td class="font-mono fw-semibold <%= 'ps-4' unless current_user %>">
+                    <%= link_to item.custom_id, target_url, class: "badge bg-primary-subtle text-primary border border-primary-subtle text-decoration-underline font-mono px-3 py-1" %>
+                  </td>
+                  <% @table_fields.each do |field| %>
+                    <% val = item.public_send(field[:value_column]) %>
+                    <td>
+                      <% if field[:type] == "bool" %>
+                        <input type="checkbox" class="form-check-input" <%= "checked" if val %> disabled>
+                      <% elsif field[:type] == "link" && val.present? %>
+                        <div class="d-flex align-items-center gap-2">
+                          <% if val.to_s.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || val.to_s.include?("images.unsplash.com") || val.to_s.include?("res.cloudinary.com") || val.to_s.include?("iili.io") %>
+                            <img src="<%= val %>" alt="" class="rounded-2 border object-fit-cover" style="width: 30px; height: 30px;">
+                          <% else %>
+                            <i class="bi bi-file-earmark-richtext text-primary"></i>
+                          <% end %>
+                          <%= link_to truncate(val.to_s.split("/").last.presence || val.to_s, length: 24), val.to_s, target: "_blank", rel: "noopener", class: "small text-decoration-underline fw-medium" %>
+                        </div>
+                      <% elsif field == primary_link_field %>
+                        <%= link_to (val.presence || "—"), target_url, class: "text-body text-decoration-underline fw-semibold" %>
+                      <% else %>
+                        <span class="<%= 'font-mono' if field[:type] == 'int' %>"><%= val.presence || "—" %></span>
+                      <% end %>
+                    </td>
+                  <% end %>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="avatar-circle" style="width: 26px; height: 26px; font-size: 0.68rem;"><%= user_initials(item.created_by.name) %></span>
+                      <div>
+                        <%= link_to item.created_by.name, user_path(item.created_by), class: "text-decoration-none text-body fw-medium small d-block" %>
+                        <span class="text-secondary font-mono d-block" style="font-size: 0.7rem;"><%= localized_time_ago(item.created_at) %></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-end pe-4">
+                    <span class="badge rounded-pill font-mono px-2.5 py-1 <%= liked ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-body-tertiary text-secondary border' %>">
+                      <i class="bi <%= liked ? 'bi-heart-fill' : 'bi-heart' %> me-1"></i>
+                      <span data-like-count><%= item.likes_count %></span>
+                    </span>
+                  </td>
+                </tr>
+              <% end %>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <% if @total_pages.to_i > 1 %>
+        <div class="card-footer bg-transparent py-2.5 px-4 d-flex justify-content-between align-items-center border-top">
+          <span class="text-secondary small font-mono">
+            <%= t('common.page_summary', page: @page, total: @total_pages) %>
+          </span>
+          <div class="btn-group btn-group-sm">
+            <%= link_to t('common.prev_page'),
+                  inventory_path(@inventory, tab: "items", page: [@page - 1, 1].max),
+                  class: "btn btn-outline-secondary #{'disabled' if @page <= 1}" %>
+            <%= link_to t('common.next_page'),
+                  inventory_path(@inventory, tab: "items", page: [@page + 1, @total_pages].min),
+                  class: "btn btn-outline-secondary #{'disabled' if @page >= @total_pages}" %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+  <% elsif @active_tab == "discussion" %>
+    <div class="card p-4">
+      <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
+        <div class="d-flex align-items-center gap-2">
+          <span class="stat-icon-badge" style="width: 34px; height: 34px;"><i class="bi bi-chat-dots"></i></span>
+          <h2 class="h6 fw-bold mb-0"><%= t('inventory.tabs.discussion') %></h2>
+        </div>
+        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill font-mono px-3 py-1">
+          <i class="bi bi-broadcast me-1"></i><%= t('inventory.live_stream') %>
+        </span>
+      </div>
+
+      <div data-inventory-workspace-target="discussionList"
+           data-poll-url="<%= inventory_comments_path(@inventory) %>"
+           class="d-flex flex-column gap-3 mb-4">
+        <%= render "comments/list", comments: @comments %>
+      </div>
+
+      <% if current_user %>
+        <%= form_with model: [@inventory, Comment.new],
+              data: { inventory_workspace_target: "commentForm", action: "submit->inventory-workspace#submitComment" },
+              class: "p-3 rounded-3 border bg-body-tertiary" do |f| %>
+          <div class="mb-2">
+            <%= f.text_area :body,
+                  rows: 3,
+                  class: "form-control modern-input bg-body",
+                  placeholder: t('inventory.chat_placeholder'),
+                  data: { inventory_workspace_target: "commentInput" },
+                  required: true %>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-secondary small"><i class="bi bi-markdown me-1"></i>Markdown</span>
+            <%= f.submit t('inventory.post_comment'), class: "btn btn-primary btn-sm fw-semibold rounded-3 px-4 shadow-sm" %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+
+  <% elsif @active_tab == "settings" && can_manage %>
+    <div class="card p-4">
+      <%= form_with model: @inventory, url: inventory_path(@inventory, tab: "settings"), method: :patch, data: { inventory_workspace_target: "autoSaveForm" } do |f| %>
+        <%= f.hidden_field :lock_version, data: { inventory_workspace_target: "lockVersion" } %>
+        <%= f.hidden_field :image_url, data: { inventory_workspace_target: "imageUrlInput" } %>
+        <input type="hidden" name="force_overwrite" value="0" data-inventory-workspace-target="forceOverwriteInput">
+
+        <div class="row g-4">
+          <div class="col-lg-7">
+            <div class="mb-3">
+              <%= f.label :title, t('inventory.title'), class: "form-label modern-label" %>
+              <%= f.text_field :title, class: "form-control modern-input", required: true %>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-5">
+                <%= f.label :category_id, t('home.col_category'), class: "form-label modern-label" %>
+                <%= f.select :category_id,
+                      options_for_select(all_categories.map { |c| [localized_category_name(c), c.id] }, @inventory.category_id),
+                      {},
+                      class: "form-select modern-input" %>
+              </div>
+              <div class="col-sm-7">
+                <%= f.label :tag_list, t('inventory.tags'), class: "form-label modern-label" %>
+                <%= f.text_field :tag_list, value: @inventory.tag_list, class: "form-control modern-input", data: { inventory_workspace_target: "tagInput" } %>
+              </div>
+            </div>
+            <div class="mb-3">
+              <%= f.label :description, t('inventory.description'), class: "form-label modern-label" %>
+              <%= f.text_area :description, rows: 4, class: "form-control modern-input", data: { inventory_workspace_target: "markdownInput" } %>
+            </div>
+            <div class="p-3 rounded-3 border bg-body-tertiary d-flex align-items-center justify-content-between gap-3">
+              <div>
+                <label class="fw-semibold small d-block mb-0" for="settingsPublicSwitch"><%= t('common.public') %></label>
+                <span class="text-secondary" style="font-size: 0.76rem;"><%= t('inventory.public_access') %></span>
+              </div>
+              <div class="form-check form-switch m-0">
+                <%= f.check_box :is_public, class: "form-check-input fs-5", id: "settingsPublicSwitch" %>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-5">
+            <label class="form-label modern-label"><%= t('inventory.cloud_image') %></label>
+            <div data-inventory-workspace-target="dropzone" class="cloud-dropzone mb-3"></div>
+
+            <div data-inventory-workspace-target="imagePreviewCard"
+                 class="p-3 rounded-3 border bg-body-tertiary d-flex align-items-center justify-content-between gap-3 <%= 'd-none' if @inventory.image_url.blank? %>">
+              <div class="d-flex align-items-center gap-3 overflow-hidden">
+                <img data-inventory-workspace-target="imagePreviewImg"
+                     src="<%= @inventory.image_url %>"
+                     alt=""
+                     class="rounded-3 border object-fit-cover flex-shrink-0"
+                     style="width: 60px; height: 60px;">
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
+                  <i class="bi bi-cloud-check-fill me-1"></i><%= t('common.saved_badge') %>
+                </span>
+              </div>
+              <button type="button" data-inventory-workspace-target="removeImgBtn" class="btn btn-sm btn-outline-danger rounded-3 flex-shrink-0">
+                <i class="bi bi-trash3 me-1"></i><%= t('common.delete') %>
+              </button>
+            </div>
+          </div>
+
+          <div class="col-12 pt-3 border-top">
+            <%= f.submit t('common.save'), class: "btn btn-primary btn-sm fw-semibold rounded-3 px-4 py-2 shadow-sm" %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+  <% elsif @active_tab == "custom_id" && can_manage %>
+    <div class="card p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
+        <div class="px-3 py-2 rounded-3 bg-body-tertiary border d-flex align-items-center gap-2">
+          <span class="text-secondary small"><%= t('inventory.custom_id_example') %></span>
+          <strong data-inventory-workspace-target="idPreview" class="font-mono fs-5 text-primary"><%= @id_generator.generate(preview: true) %></strong>
+        </div>
+      </div>
+
+      <%= form_with url: update_custom_id_inventory_path(@inventory), method: :patch, data: { inventory_workspace_target: "autoSaveForm" } do %>
+        <%= hidden_field_tag :lock_version, @inventory.lock_version, data: { inventory_workspace_target: "lockVersion" } %>
+        <%= hidden_field_tag :clear_all, (@inventory.custom_id_config.empty? ? "1" : "0"), data: { inventory_workspace_target: "clearAllInput" } %>
+        <input type="hidden" name="force_overwrite" value="0" data-inventory-workspace-target="forceOverwriteInput">
+
+        <div data-inventory-workspace-target="idList"
+             data-next-seq="<%= @id_generator.next_sequence_number %>"
+             data-action="input->inventory-workspace#computeIdPreview"
+             class="d-flex flex-column gap-2 p-3 rounded-3 border bg-body-tertiary mb-3">
+          <% @inventory.custom_id_config.each do |el| %>
+            <% spec_val = el["format"].presence || el["value"].to_s %>
+            <% is_guid = el["type"] == "guid" %>
+            <div class="id-element-row p-2 rounded-3 bg-body border shadow-sm">
+              <div class="row g-2 align-items-center">
+                <div class="col-md-3 d-flex align-items-center gap-2">
+                  <span class="drag-handle text-secondary px-1" style="cursor: grab;"><i class="bi bi-grip-vertical"></i></span>
+                  <select name="elements[][type]" class="form-select form-select-sm id-part-type" data-action="change->inventory-workspace#onElementTypeChange">
+                    <% CustomIdGenerator::SUPPORTED_ELEMENTS.each do |key, label| %>
+                      <option value="<%= key %>" <%= "selected" if el["type"] == key %>><%= localized_id_element_label(key, label) %></option>
+                    <% end %>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <input type="text" name="elements[][spec]" value="<%= spec_val %>" class="form-control form-control-sm font-mono id-part-spec <%= 'bg-body-secondary text-secondary' if is_guid %>" placeholder="📦-, X5_, D3_, yyyy" <%= "readonly" if is_guid %>>
+                </div>
+                <div class="col-md-6 d-flex align-items-center justify-content-between gap-2">
+                  <span class="text-secondary small id-part-hint"></span>
+                  <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle flex-shrink-0"
+                          data-bs-toggle="popover" data-bs-trigger="focus"
+                          data-bs-title="<%= t('inventory.popover_title') %>"
+                          data-bs-content="<%= t('inventory.popover_body') %>">
+                    <i class="bi bi-question-lg"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+
+        <template id="idElementRowTemplate">
+          <div class="id-element-row p-2 rounded-3 bg-body border shadow-sm">
+            <div class="row g-2 align-items-center">
+              <div class="col-md-3 d-flex align-items-center gap-2">
+                <span class="drag-handle text-secondary px-1" style="cursor: grab;"><i class="bi bi-grip-vertical"></i></span>
+                <select name="elements[][type]" class="form-select form-select-sm id-part-type" data-action="change->inventory-workspace#onElementTypeChange">
+                  <% CustomIdGenerator::SUPPORTED_ELEMENTS.each do |key, label| %>
+                    <option value="<%= key %>"><%= localized_id_element_label(key, label) %></option>
+                  <% end %>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <input type="text" name="elements[][spec]" value="📦-" class="form-control form-control-sm font-mono id-part-spec" placeholder="📦-, X5_, D3_, yyyy">
+              </div>
+              <div class="col-md-6 d-flex align-items-center justify-content-between gap-2">
+                <span class="text-secondary small id-part-hint"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle flex-shrink-0"
+                        data-bs-toggle="popover" data-bs-trigger="focus"
+                        data-bs-title="<%= t('inventory.popover_title') %>"
+                        data-bs-content="<%= t('inventory.popover_body') %>">
+                  <i class="bi bi-question-lg"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <p class="text-secondary small mb-3"><i class="bi bi-info-circle me-1"></i><%= t('inventory.custom_id_help_text') %></p>
+
+        <div class="d-flex justify-content-between align-items-center">
+          <button type="button" data-action="click->inventory-workspace#addIdElement" class="btn btn-outline-primary btn-sm fw-semibold rounded-3 px-3">
+            <i class="bi bi-plus-lg me-1"></i><%= t('inventory.add_element') %>
+          </button>
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-4 shadow-sm"><%= t('common.save') %></button>
+        </div>
+      <% end %>
+    </div>
+
+  <% elsif @active_tab == "fields" && can_manage %>
+    <div class="card p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
+        <div>
+          <h2 class="h6 fw-bold mb-1"><%= t('inventory.fields_title') %></h2>
+          <p class="text-secondary small mb-0"><%= t('inventory.fields_subtitle') %></p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <select data-inventory-workspace-target="fieldTypeSelect" class="form-select form-select-sm" style="width: 225px;">
+            <option value="string"><%= t('inventory.type_string') %></option>
+            <option value="text"><%= t('inventory.type_text') %></option>
+            <option value="int"><%= t('inventory.type_int') %></option>
+            <option value="link"><%= t('inventory.type_link') %></option>
+            <option value="bool"><%= t('inventory.type_bool') %></option>
+          </select>
+          <button type="button" data-action="click->inventory-workspace#addFieldSlot" class="btn btn-sm btn-outline-primary fw-semibold rounded-3 px-3">
+            <i class="bi bi-plus-lg me-1"></i><%= t('inventory.add_field') %>
+          </button>
+        </div>
+      </div>
+
+      <%= form_with url: update_fields_inventory_path(@inventory), method: :patch, data: { inventory_workspace_target: "autoSaveForm" } do %>
+        <%= hidden_field_tag :lock_version, @inventory.lock_version, data: { inventory_workspace_target: "lockVersion" } %>
+        <input type="hidden" name="force_overwrite" value="0" data-inventory-workspace-target="forceOverwriteInput">
+
+        <div data-inventory-workspace-target="fieldsList" class="d-flex flex-column gap-2 mb-3">
+          <% @inventory.all_custom_field_slots.each_with_index do |slot, idx| %>
+            <% localized_slot_label = "#{localized_field_type_label(slot[:type], slot[:type_label])} ##{slot[:index]}" %>
+            <div class="field-slot-row p-3 rounded-3 bg-body border shadow-sm <%= 'd-none' unless slot[:state] %>"
+                 data-field-type="<%= slot[:type] %>"
+                 data-default-name="<%= localized_slot_label %>"
+                 data-active="<%= slot[:state] ? 'true' : 'false' %>">
+              <input type="hidden" name="fields[<%= slot[:key] %>][position]" value="<%= idx + 1 %>" class="field-position-input">
+              <input type="hidden" name="fields[<%= slot[:key] %>][state]" value="<%= slot[:state] ? '1' : '0' %>" class="field-state-input">
+
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="field-drag-handle text-secondary px-1" style="cursor: grab;"><i class="bi bi-grip-vertical"></i></span>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono" style="width: 195px;"><%= localized_slot_label %></span>
+                <input type="text" name="fields[<%= slot[:key] %>][name]" value="<%= slot[:name] %>" class="form-control form-control-sm fw-semibold" style="width: 210px;" placeholder="<%= t('inventory.field_title_placeholder') %>">
+                <input type="text" name="fields[<%= slot[:key] %>][desc]" value="<%= slot[:description] %>" class="form-control form-control-sm flex-grow-1" placeholder="<%= t('inventory.field_desc_placeholder') %>">
+                <div class="form-check ms-auto">
+                  <input type="hidden" name="fields[<%= slot[:key] %>][show_in_table]" value="0">
+                  <input type="checkbox" name="fields[<%= slot[:key] %>][show_in_table]" value="1" class="form-check-input" id="tbl_<%= slot[:key] %>" <%= "checked" if slot[:show_in_table] %>>
+                  <label class="form-check-label small" for="tbl_<%= slot[:key] %>"><%= t('inventory.show_in_table') %></label>
+                </div>
+                <button type="button" data-action="click->inventory-workspace#removeFieldSlot" class="btn btn-sm btn-outline-danger rounded-3"><i class="bi bi-x-lg"></i></button>
+              </div>
+            </div>
+          <% end %>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-4 shadow-sm"><%= t('common.save') %></button>
+      <% end %>
+    </div>
+
+  <% elsif @active_tab == "access" && can_manage %>
+    <div class="card p-4 mb-4">
+      <%= form_with model: @inventory, url: inventory_path(@inventory, tab: "access"), method: :patch, data: { inventory_workspace_target: "autoSaveForm" } do |f| %>
+        <%= f.hidden_field :lock_version, data: { inventory_workspace_target: "lockVersion" } %>
+        <input type="hidden" name="force_overwrite" value="0" data-inventory-workspace-target="forceOverwriteInput">
+
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div>
+            <h2 class="h6 fw-bold mb-1"><i class="bi bi-globe2 text-primary me-1"></i><%= t('common.public') %> / <%= t('common.restricted') %></h2>
+            <p class="text-secondary small mb-0"><%= t('inventory.public_access') %></p>
+          </div>
+          <div class="form-check form-switch m-0">
+            <%= f.check_box :is_public, class: "form-check-input fs-4", id: "accessTabPublicSwitch" %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="card p-4 mb-4">
+      <h2 class="h6 fw-bold mb-2"><%= t('inventory.grant_access_title') %></h2>
+      <%= form_with url: grant_access_inventory_path(@inventory), method: :post, class: "d-flex flex-wrap gap-2 align-items-start" do %>
+        <div class="flex-grow-1" style="max-width: 420px;">
+          <select name="user_identifier" data-inventory-workspace-target="userAccessSelect" placeholder="<%= t('inventory.grant_access_placeholder') %>" required></select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-3 py-2 shadow-sm">
+          <i class="bi bi-person-plus-fill me-1"></i><%= t('inventory.grant_access_btn') %>
+        </button>
+      <% end %>
+    </div>
+
+    <div class="card overflow-hidden" data-controller="table-selection">
+      <%= form_with url: revoke_access_inventory_path(@inventory), method: :delete, data: { table_selection_target: "form" } do %>
+        <div data-table-selection-target="idsContainer"></div>
+      <% end %>
+      <div data-table-selection-target="toolbar" class="context-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span data-table-selection-target="counter" data-label="<%= t('home.toolbar_selected') %>" class="badge text-bg-secondary rounded-pill font-mono px-3 py-1">0 <%= t('home.toolbar_selected') %></span>
+          <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#submitBulk" class="btn btn-sm btn-outline-danger rounded-3" disabled>
+            <i class="bi bi-person-dash me-1"></i><%= t('inventory.remove_selected') %>
+          </button>
+        </div>
+        <div class="btn-group btn-group-sm">
+          <%= link_to t('inventory.sort_by_name'), inventory_path(@inventory, tab: "access", access_sort: "name"), class: "btn #{params[:access_sort] != 'email' ? 'btn-primary' : 'btn-outline-secondary'}" %>
+          <%= link_to t('inventory.sort_by_email'), inventory_path(@inventory, tab: "access", access_sort: "email"), class: "btn #{params[:access_sort] == 'email' ? 'btn-primary' : 'btn-outline-secondary'}" %>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover table-enterprise align-middle mb-0">
+          <thead>
+            <tr>
+              <th class="ps-4" style="width: 44px;"><input type="checkbox" class="form-check-input" data-table-selection-target="selectAll" data-action="change->table-selection#toggleAll"></th>
+              <th><%= t('auth.full_name') %></th>
+              <th class="pe-4"><%= t('auth.email') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if @access_records.empty? %>
+              <tr>
+                <td colspan="3" class="empty-state-box">
+                  <div class="empty-state-icon"><i class="bi bi-people"></i></div>
+                  <div class="text-secondary small"><%= t('inventory.no_users') %></div>
+                </td>
+              </tr>
+            <% else %>
+              <% @access_records.each do |record| %>
+                <tr>
+                  <td class="ps-4"><input type="checkbox" class="form-check-input" value="<%= record.id %>" data-table-selection-target="rowCheckbox" data-action="change->table-selection#toggleRow"></td>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="avatar-circle"><%= user_initials(record.user.name) %></span>
+                      <%= link_to record.user.name, user_path(record.user), class: "fw-semibold text-body text-decoration-underline" %>
+                    </div>
+                  </td>
+                  <td class="font-mono small text-secondary pe-4"><%= record.user.email %></td>
+                </tr>
+              <% end %>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  <% elsif @active_tab == "stats" && can_manage %>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="bento-stat-card bg-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-secondary small fw-medium"><%= t('home.stats_items') %></div>
+              <div class="fs-2 fw-bold font-mono text-primary"><%= @statistics[:total_items] %></div>
+            </div>
+            <span class="stat-icon-badge"><i class="bi bi-box-seam"></i></span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="bento-stat-card bg-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-secondary small fw-medium"><%= t('common.likes') %></div>
+              <div class="fs-2 fw-bold font-mono text-danger"><%= @statistics[:total_likes] %></div>
+            </div>
+            <span class="stat-icon-badge text-danger" style="background-color: rgba(239, 68, 68, 0.12);"><i class="bi bi-heart-fill"></i></span>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4 h-100">
+          <h3 class="h6 fw-bold mb-3"><i class="bi bi-calculator text-primary me-2"></i><%= t('inventory.stats_numeric_title') %></h3>
+          <% if @statistics[:numeric].empty? %>
+            <p class="text-secondary small mb-0"><%= t('inventory.no_numeric') %></p>
+          <% else %>
+            <table class="table table-sm font-mono small mb-0">
+              <thead><tr><th><%= t('inventory.field_col') %></th><th><%= t('inventory.stats_avg') %></th><th><%= t('inventory.stats_min') %></th><th><%= t('inventory.stats_max') %></th></tr></thead>
+              <tbody>
+                <% @statistics[:numeric].each do |stat| %>
+                  <tr>
+                    <td class="fw-semibold"><%= stat[:name] %></td>
+                    <td class="text-primary fw-bold"><%= stat[:avg] %></td>
+                    <td><%= stat[:min] %></td>
+                    <td><%= stat[:max] %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          <% end %>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4 h-100">
+          <h3 class="h6 fw-bold mb-3"><i class="bi bi-bar-chart-steps text-primary me-2"></i><%= t('inventory.stats_string_title') %></h3>
+          <% if @statistics[:strings].empty? %>
+            <p class="text-secondary small mb-0"><%= t('inventory.no_strings') %></p>
+          <% else %>
+            <% @statistics[:strings].each do |s| %>
+              <div class="mb-3">
+                <div class="fw-semibold small mb-1"><%= s[:name] %></div>
+                <% if s[:top_values].empty? %>
+                  <span class="text-secondary small">—</span>
+                <% else %>
+                  <div class="d-flex flex-wrap gap-2">
+                    <% s[:top_values].each do |val, count| %>
+                      <span class="badge bg-body-tertiary text-body border font-mono rounded-pill px-3 py-1"><%= truncate(val.to_s, length: 28) %> (<%= count %>)</span>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+  <% elsif @active_tab == "export" && can_manage %>
+    <div class="card p-5 text-center">
+      <div class="empty-state-icon mx-auto mb-3"><i class="bi bi-file-earmark-spreadsheet"></i></div>
+      <h2 class="h5 fw-bold mb-2"><%= t('home.toolbar_export') %></h2>
+      <p class="text-secondary small mb-3"><%= @inventory.title %> (<%= @inventory.items_count %> <%= t('home.col_items') %>)</p>
+      <div>
+        <%= link_to export_items_csv_inventory_path(@inventory), class: "btn btn-primary btn-sm fw-semibold rounded-3 px-4 py-2 shadow-sm" do %>
+          <i class="bi bi-download me-1"></i><%= t('home.toolbar_export') %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

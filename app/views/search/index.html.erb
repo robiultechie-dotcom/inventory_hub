@@ -1,0 +1,138 @@
+<div class="card hero-bento-card mb-4">
+  <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <span class="brand-logo-box" style="width: 46px; height: 46px;">
+        <i class="bi <%= @tag.present? ? 'bi-hash' : 'bi-search' %> fs-4"></i>
+      </span>
+      <div>
+        <h1 class="h4 fw-bold mb-1" style="letter-spacing: -0.02em;">
+          <% if @tag.present? %>
+            <%= t('common.tag_heading') %>: <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-mono">#<%= @tag %></span>
+          <% else %>
+            <%= t('common.search_heading') %>: <span class="text-primary">"<%= @query %>"</span>
+          <% end %>
+        </h1>
+        <p class="text-secondary small mb-0">
+          <%= t('search.results_summary', inv_count: @inventories.size, item_count: @items.size) %>
+        </p>
+      </div>
+    </div>
+
+    <%= form_with url: search_path, method: :get, local: true, class: "d-flex gap-2 flex-grow-1", style: "max-width: 380px;" do %>
+      <div class="input-group">
+        <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-search"></i></span>
+        <input type="search" name="q" value="<%= @query %>" class="form-control modern-input border-start-0 ps-0" placeholder="<%= t('nav.search_placeholder') %>">
+      </div>
+      <button type="submit" class="btn btn-primary fw-semibold rounded-3 px-3.5 shadow-sm">
+        <%= t('common.search_heading') %>
+      </button>
+    <% end %>
+  </div>
+</div>
+
+<div class="card overflow-hidden mb-4">
+  <div class="card-header bg-transparent py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
+    <div class="d-flex align-items-center gap-2">
+      <span class="stat-icon-badge" style="width: 32px; height: 32px; font-size: 0.9rem;"><i class="bi bi-folder2-open"></i></span>
+      <h2 class="h6 fw-bold mb-0"><%= t('home.stats_inventories') %></h2>
+    </div>
+    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-mono px-2.5 py-1"><%= @inventories.size %></span>
+  </div>
+
+  <%= render "inventories/table", inventories: @inventories, selectable: current_user.present?, deletable: false %>
+</div>
+
+<% if @tag.blank? %>
+  <div class="card overflow-hidden" data-controller="table-selection">
+    <div class="card-header bg-transparent py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <span class="stat-icon-badge" style="width: 32px; height: 32px; font-size: 0.9rem;"><i class="bi bi-box-seam"></i></span>
+        <h2 class="h6 fw-bold mb-0"><%= t('home.col_items') %></h2>
+      </div>
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-mono px-2.5 py-1"><%= @items.size %></span>
+    </div>
+
+    <% if current_user %>
+      <div data-table-selection-target="toolbar" class="context-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span data-table-selection-target="counter" data-label="<%= t('home.toolbar_selected') %>" class="badge text-bg-secondary rounded-pill font-mono px-2.5 py-1">
+          0 <%= t('home.toolbar_selected') %>
+        </span>
+
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" data-table-selection-target="singleAction" data-action="click->table-selection#openSelected" class="btn btn-sm btn-outline-primary rounded-3" disabled>
+            <i class="bi bi-box-arrow-up-right me-1"></i><%= t('common.open') %>
+          </button>
+          <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#likeSelected" class="btn btn-sm btn-outline-danger rounded-3" disabled>
+            <i class="bi bi-heart-fill me-1"></i><%= t('common.like_toggle') %>
+          </button>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="table-responsive">
+      <table class="table table-hover table-enterprise align-middle mb-0">
+        <thead>
+          <tr>
+            <% if current_user %>
+              <th class="ps-4" style="width: 44px;">
+                <input type="checkbox" class="form-check-input" data-table-selection-target="selectAll" data-action="change->table-selection#toggleAll">
+              </th>
+            <% end %>
+            <th class="<%= 'ps-4' unless current_user %>">ID</th>
+            <th><%= t('search.col_item') %></th>
+            <th><%= t('home.col_inventory') %></th>
+            <th><%= t('home.col_creator') %></th>
+            <th class="text-end pe-4"><%= t('common.likes') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if @items.empty? %>
+            <tr>
+              <td colspan="<%= current_user ? 6 : 5 %>" class="empty-state-box">
+                <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
+                <div class="fw-semibold text-body mb-1"><%= t('common.no_items') %></div>
+              </td>
+            </tr>
+          <% else %>
+            <% @items.each do |item| %>
+              <% item_url = item.inventory.writable_by?(current_user) ? edit_inventory_item_path(item.inventory, item) : inventory_item_path(item.inventory, item) %>
+              <% like_url = toggle_like_inventory_item_path(item.inventory, item) %>
+              <% liked    = @liked_item_ids.include?(item.id) %>
+              <tr data-url="<%= item_url %>" data-like-url="<%= like_url %>" data-likes="<%= item.likes_count %>">
+                <% if current_user %>
+                  <td class="ps-4">
+                    <input type="checkbox" class="form-check-input" value="<%= item.id %>" data-table-selection-target="rowCheckbox" data-action="change->table-selection#toggleRow">
+                  </td>
+                <% end %>
+                <td class="font-mono fw-semibold <%= 'ps-4' unless current_user %>">
+                  <%= link_to item.custom_id, item_url, class: "badge bg-primary-subtle text-primary border border-primary-subtle text-decoration-underline font-mono px-2.5 py-1.5" %>
+                </td>
+                <td>
+                  <%= link_to item.primary_label, item_url, class: "text-body text-decoration-underline fw-semibold" %>
+                </td>
+                <td>
+                  <%= link_to item.inventory.title, inventory_path(item.inventory), class: "badge bg-body-secondary text-body border text-decoration-none fw-medium rounded-pill px-2.5 py-1" %>
+                </td>
+                <td class="small text-secondary">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="avatar-circle" style="width: 24px; height: 24px; font-size: 0.65rem;"><%= user_initials(item.created_by.name) %></span>
+                    <div>
+                      <%= link_to item.created_by.name, user_path(item.created_by), class: "text-decoration-none text-body fw-medium d-block" %>
+                      <span class="d-block font-mono text-secondary" style="font-size: 0.7rem;"><%= localized_time_ago(item.created_at) %></span>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end pe-4">
+                  <span class="badge rounded-pill font-mono px-2.5 py-1 <%= liked ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-body-tertiary text-secondary border' %>">
+                    <i class="bi <%= liked ? 'bi-heart-fill' : 'bi-heart' %> me-1"></i>
+                    <span data-like-count><%= item.likes_count %></span>
+                  </span>
+                </td>
+              </tr>
+            <% end %>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% end %>

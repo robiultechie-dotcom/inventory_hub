@@ -1,0 +1,149 @@
+<% can_manage_profile = current_user && (current_user.id == @user.id || current_user.admin?) %>
+
+<div class="card hero-bento-card mb-4">
+  <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3.5">
+      <div class="avatar-circle shadow" style="width: 64px; height: 64px; font-size: 1.35rem;">
+        <%= user_initials(@user.name) %>
+      </div>
+      <div>
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+          <h1 class="h4 fw-bold mb-0" style="letter-spacing: -0.02em;"><%= @user.name %></h1>
+          <% if @user.admin? %>
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1">
+              <i class="bi bi-shield-lock-fill me-1"></i><%= t('admin.role_admin') %>
+            </span>
+          <% else %>
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2.5 py-1">
+              <%= t('admin.role_user') %>
+            </span>
+          <% end %>
+          <% if current_user&.id == @user.id %>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1">
+              <%= t('admin.you_badge') %>
+            </span>
+          <% end %>
+        </div>
+        <div class="text-secondary small font-mono">
+          <i class="bi bi-envelope me-1"></i><%= @user.email %>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-2.5">
+      <div class="bento-stat-card py-2 px-3 bg-body">
+        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('workspace.owned_title') %></span>
+        <span class="fw-bold font-mono fs-5 text-primary"><%= @owned_inventories.size %></span>
+      </div>
+      <div class="bento-stat-card py-2 px-3 bg-body">
+        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('workspace.writable_title') %></span>
+        <span class="fw-bold font-mono fs-5"><%= @writable_inventories.size %></span>
+      </div>
+      <% if can_manage_profile %>
+        <button type="button" class="btn btn-primary fw-semibold rounded-3 px-3.5 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#newInventoryModal">
+          <i class="bi bi-plus-lg me-1"></i><%= t('home.new_inventory_btn') %>
+        </button>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<!-- TABLE 1: Inventories Owned by User (Section 4: Create New, Edit, Delete, Sort & Filter) -->
+<div class="card overflow-hidden mb-4">
+  <div class="card-header bg-transparent py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-3 border-bottom">
+    <div class="d-flex align-items-center gap-2.5">
+      <span class="stat-icon-badge" style="width: 36px; height: 36px;">
+        <i class="bi bi-folder-check"></i>
+      </span>
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <h2 class="h6 fw-bold mb-0"><%= t('workspace.owned_title') %></h2>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-mono"><%= @owned_inventories.size %></span>
+        </div>
+        <p class="text-secondary small mb-0" style="font-size: 0.76rem;"><%= t('workspace.owned_subtitle') %></p>
+      </div>
+    </div>
+
+    <%= form_with url: user_path(@user), method: :get, local: true, class: "d-flex flex-wrap align-items-center gap-2" do %>
+      <%= hidden_field_tag :access_q, params[:access_q] if params[:access_q].present? %>
+      <%= hidden_field_tag :access_category_id, params[:access_category_id] if params[:access_category_id].present? %>
+      <%= hidden_field_tag :access_sort, params[:access_sort] if params[:access_sort].present? %>
+
+      <div class="input-group input-group-sm" style="width: 210px;">
+        <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-search"></i></span>
+        <input type="search" name="owned_q" value="<%= params[:owned_q] %>" class="form-control border-start-0 ps-0" placeholder="<%= t('workspace.filter_placeholder') %>">
+      </div>
+
+      <select name="owned_category_id" class="form-select form-select-sm" style="width: 155px;" onchange="this.form.submit()">
+        <option value=""><%= t('workspace.all_categories') %></option>
+        <% all_categories.each do |cat| %>
+          <option value="<%= cat.id %>" <%= "selected" if params[:owned_category_id].to_s == cat.id.to_s %>><%= localized_category_name(cat) %></option>
+        <% end %>
+      </select>
+
+      <select name="owned_sort" class="form-select form-select-sm" style="width: 145px;" onchange="this.form.submit()">
+        <option value="newest" <%= "selected" if params[:owned_sort].blank? || params[:owned_sort] == "newest" %>><%= t('workspace.sort_newest') %></option>
+        <option value="oldest" <%= "selected" if params[:owned_sort] == "oldest" %>><%= t('workspace.sort_oldest') %></option>
+        <option value="title_asc" <%= "selected" if params[:owned_sort] == "title_asc" %>><%= t('workspace.sort_title_asc') %></option>
+        <option value="title_desc" <%= "selected" if params[:owned_sort] == "title_desc" %>><%= t('workspace.sort_title_desc') %></option>
+        <option value="most_items" <%= "selected" if params[:owned_sort] == "most_items" %>><%= t('workspace.sort_most_items') %></option>
+      </select>
+
+      <button type="submit" class="btn btn-sm btn-outline-primary rounded-3 px-2.5">
+        <i class="bi bi-funnel-fill"></i>
+      </button>
+    <% end %>
+  </div>
+
+  <%= render "inventories/table", inventories: @owned_inventories, selectable: can_manage_profile, deletable: can_manage_profile, creatable: can_manage_profile %>
+</div>
+
+<!-- TABLE 2: Inventories User Has Write Access To (Section 4) -->
+<div class="card overflow-hidden">
+  <div class="card-header bg-transparent py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-3 border-bottom">
+    <div class="d-flex align-items-center gap-2.5">
+      <span class="stat-icon-badge" style="width: 36px; height: 36px;">
+        <i class="bi bi-pencil-square"></i>
+      </span>
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <h2 class="h6 fw-bold mb-0"><%= t('workspace.writable_title') %></h2>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-mono"><%= @writable_inventories.size %></span>
+        </div>
+        <p class="text-secondary small mb-0" style="font-size: 0.76rem;"><%= t('workspace.writable_subtitle') %></p>
+      </div>
+    </div>
+
+    <%= form_with url: user_path(@user), method: :get, local: true, class: "d-flex flex-wrap align-items-center gap-2" do %>
+      <%= hidden_field_tag :owned_q, params[:owned_q] if params[:owned_q].present? %>
+      <%= hidden_field_tag :owned_category_id, params[:owned_category_id] if params[:owned_category_id].present? %>
+      <%= hidden_field_tag :owned_sort, params[:owned_sort] if params[:owned_sort].present? %>
+
+      <div class="input-group input-group-sm" style="width: 210px;">
+        <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-search"></i></span>
+        <input type="search" name="access_q" value="<%= params[:access_q] %>" class="form-control border-start-0 ps-0" placeholder="<%= t('workspace.filter_placeholder') %>">
+      </div>
+
+      <select name="access_category_id" class="form-select form-select-sm" style="width: 155px;" onchange="this.form.submit()">
+        <option value=""><%= t('workspace.all_categories') %></option>
+        <% all_categories.each do |cat| %>
+          <option value="<%= cat.id %>" <%= "selected" if params[:access_category_id].to_s == cat.id.to_s %>><%= localized_category_name(cat) %></option>
+        <% end %>
+      </select>
+
+      <select name="access_sort" class="form-select form-select-sm" style="width: 145px;" onchange="this.form.submit()">
+        <option value="newest" <%= "selected" if params[:access_sort].blank? || params[:access_sort] == "newest" %>><%= t('workspace.sort_newest') %></option>
+        <option value="oldest" <%= "selected" if params[:access_sort] == "oldest" %>><%= t('workspace.sort_oldest') %></option>
+        <option value="title_asc" <%= "selected" if params[:access_sort] == "title_asc" %>><%= t('workspace.sort_title_asc') %></option>
+        <option value="title_desc" <%= "selected" if params[:access_sort] == "title_desc" %>><%= t('workspace.sort_title_desc') %></option>
+        <option value="most_items" <%= "selected" if params[:access_sort] == "most_items" %>><%= t('workspace.sort_most_items') %></option>
+      </select>
+
+      <button type="submit" class="btn btn-sm btn-outline-primary rounded-3 px-2.5">
+        <i class="bi bi-funnel-fill"></i>
+      </button>
+    <% end %>
+  </div>
+
+  <%= render "inventories/table", inventories: @writable_inventories, selectable: current_user.present?, deletable: false %>
+</div>
