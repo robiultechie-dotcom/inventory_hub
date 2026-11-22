@@ -14,7 +14,7 @@ Rails.application.configure do
   config.assume_ssl = true
   config.force_ssl = true
 
-  config.log_tags = [ :request_id ]
+  config.log_tags = [:request_id]
   config.logger   = ActiveSupport::TaggedLogging.logger($stdout)
   config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
   config.silence_healthcheck_path = "/up"
@@ -27,20 +27,22 @@ Rails.application.configure do
   config.action_mailer.perform_deliveries = true
   config.action_mailer.raise_delivery_errors = true
 
-  if ENV["SMTP_USERNAME"].present? && ENV["SMTP_PASSWORD"].present?
+  if ENV["BREVO_API_KEY"].blank? && ENV["SMTP_USERNAME"].present? && ENV["SMTP_PASSWORD"].present?
     config.action_mailer.delivery_method = :smtp
     config.action_mailer.smtp_settings = {
-      address:              ENV.fetch("SMTP_ADDRESS", "smtp.gmail.com"),
+      address:              ENV.fetch("SMTP_ADDRESS", "smtp.gmail.com").strip,
       port:                 ENV.fetch("SMTP_PORT", 587).to_i,
-      domain:               ENV.fetch("SMTP_DOMAIN", "gmail.com"),
-      user_name:            ENV.fetch("SMTP_USERNAME"),
-      password:             ENV.fetch("SMTP_PASSWORD"),
+      domain:               ENV.fetch("SMTP_DOMAIN", "gmail.com").strip,
+      user_name:            ENV.fetch("SMTP_USERNAME").strip,
+      password:             ENV.fetch("SMTP_PASSWORD").gsub(/\s+/, ""),
       authentication:       "plain",
-      enable_starttls_auto: true
+      enable_starttls_auto: true,
+      open_timeout:         10,
+      read_timeout:         15
     }
   end
 
   config.i18n.fallbacks = true
   config.active_record.dump_schema_after_migration = false
-  config.active_record.attributes_for_inspect = [ :id ]
+  config.active_record.attributes_for_inspect = [:id]
 end

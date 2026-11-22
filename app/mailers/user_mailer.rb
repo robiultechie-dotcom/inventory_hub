@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class UserMailer < ApplicationMailer
-  default from: -> { ENV.fetch("SMTP_USERNAME", "no-reply@inventoryhub.io") }
+  default from: -> { ENV["MAILER_FROM"].presence || ENV["SMTP_USERNAME"].presence || "no-reply@inventoryhub.io" }
 
   def confirmation_email(user, confirmation_url)
     @user = user
