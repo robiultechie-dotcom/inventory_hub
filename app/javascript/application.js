@@ -52,19 +52,26 @@ window.toggleItemLike = async function(likeUrl, rowElement = null) {
   return data
 }
 
-// Fix F11: Direct Cloudinary upload OR authenticated server-side /uploads fallback
+// Zero-dependency Native Cloud Uploader: Direct Cloudinary OR authenticated server-side /uploads
 window.mountCloudDropzone = function(element, options = {}) {
-  if (!element || !window.Dropzone) return null
-  if (element.dropzone) element.dropzone.destroy()
+  if (!element) return null
+  if (element.dropzone && typeof element.dropzone.destroy === "function") {
+    element.dropzone.destroy()
+  }
 
   const isEs = document.documentElement.lang === "es"
-  const dropMessage = isEs
-    ? '<i class="bi bi-cloud-arrow-up fs-4 d-block mb-1 text-primary"></i><span class="small fw-medium">Arrastra una imagen aquí o haz clic para subir</span>'
-    : '<i class="bi bi-cloud-arrow-up fs-4 d-block mb-1 text-primary"></i><span class="small fw-medium">Drop image here or click to upload</span>'
+  const idleHtml = isEs
+    ? '<i class="bi bi-cloud-arrow-up fs-4 d-block mb-1 text-primary"></i><span class="small fw-medium d-block">Arrastra una imagen aquí o haz clic para subir</span><span class="text-secondary" style="font-size: 0.75rem;">JPG, PNG, WebP o GIF (máx. 5 MB)</span>'
+    : '<i class="bi bi-cloud-arrow-up fs-4 d-block mb-1 text-primary"></i><span class="small fw-medium d-block">Drop image here or click to upload</span><span class="text-secondary" style="font-size: 0.75rem;">JPG, PNG, WebP, or GIF (max 5 MB)</span>'
+  const uploadingHtml = isEs
+    ? '<div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div><span class="small fw-medium d-block">Subiendo imagen a la nube...</span>'
+    : '<div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div><span class="small fw-medium d-block">Uploading image to cloud...</span>'
   const unconfiguredMessage = isEs
-    ? '<div class="text-center text-secondary py-2"><i class="bi bi-cloud-slash fs-4 d-block mb-1"></i><span class="small">Configura CLOUDINARY_CLOUD_NAME y CLOUDINARY_UPLOAD_PRESET para subir imágenes directamente a la nube.</span></div>'
-    : '<div class="text-center text-secondary py-2"><i class="bi bi-cloud-slash fs-4 d-block mb-1"></i><span class="small">Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET to enable direct cloud image uploads.</span></div>'
+    ? '<div class="text-center text-secondary py-2"><i class="bi bi-cloud-slash fs-4 d-block mb-1"></i><span class="small">Configura CLOUDINARY_URL o CLOUDINARY_CLOUD_NAME y CLOUDINARY_UPLOAD_PRESET para subir imágenes.</span></div>'
+    : '<div class="text-center text-secondary py-2"><i class="bi bi-cloud-slash fs-4 d-block mb-1"></i><span class="small">Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME & CLOUDINARY_UPLOAD_PRESET to enable cloud uploads.</span></div>'
   const fallbackUploadError = isEs ? "Error al subir la imagen" : "Upload failed"
+  const invalidTypeMsg = isEs ? "Solo se permiten imágenes JPG, PNG, WebP o GIF." : "Only JPG, PNG, WebP, or GIF images are allowed."
+  const tooLargeMsg = isEs ? "La imagen debe pesar menos de 5 MB." : "Image size must be under 5 MB."
 
   if (options.removeBtn) {
     options.removeBtn.onclick = () => {
@@ -81,53 +88,137 @@ window.mountCloudDropzone = function(element, options = {}) {
   const useDirectCloudinary = Boolean(cloudName && uploadPreset)
 
   if (!useDirectCloudinary && !serverUploadEnabled) {
+    element.classList.remove("dropzone", "dz-clickable", "dz-drag-hover")
+    element.removeAttribute("role")
+    element.removeAttribute("tabindex")
     element.innerHTML = unconfiguredMessage
     return null
   }
 
-  element.innerHTML = ""
-  const endpoint = useDirectCloudinary
-    ? `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`
-    : "/uploads"
+  element.classList.add("dropzone", "dz-clickable")
+  element.setAttribute("role", "button")
+  element.setAttribute("tabindex", "0")
+  element.innerHTML = `<div class="dz-message text-center w-100">${idleHtml}</div>`
 
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-  const headers = useDirectCloudinary ? {} : { "X-CSRF-Token": csrfToken, "X-Requested-With": "XMLHttpRequest" }
+  const messageEl = element.querySelector(".dz-message")
+  const fileInput = document.createElement("input")
+  fileInput.type = "file"
+  fileInput.accept = "image/jpeg,image/png,image/webp,image/gif"
+  fileInput.className = "d-none"
+  element.appendChild(fileInput)
 
-  return new window.Dropzone(element, {
-    url: endpoint,
-    headers,
-    paramName: "file",
-    maxFiles: 1,
-    maxFilesize: 5,
-    acceptedFiles: "image/jpeg,image/png,image/webp,image/gif",
-    dictDefaultMessage: dropMessage,
-    init() {
+  const allowedTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"])
+  const maxBytes = 5 * 1024 * 1024
+  let isUploading = false
+
+  const uploadFile = async (file) => {
+    if (!file || isUploading) return
+
+    const fileType = (file.type || "").toLowerCase()
+    if (fileType && !allowedTypes.has(fileType)) {
+      window.alert(invalidTypeMsg)
+      fileInput.value = ""
+      return
+    }
+    if (file.size > maxBytes) {
+      window.alert(tooLargeMsg)
+      fileInput.value = ""
+      return
+    }
+
+    isUploading = true
+    element.classList.add("is-uploading")
+    messageEl.innerHTML = uploadingHtml
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const endpoint = useDirectCloudinary
+        ? `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`
+        : "/uploads"
+
+      const headers = { Accept: "application/json" }
       if (useDirectCloudinary) {
-        this.on("sending", (_file, _xhr, formData) => {
-          formData.append("upload_preset", uploadPreset)
-        })
+        formData.append("upload_preset", uploadPreset)
+      } else {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken
+        headers["X-Requested-With"] = "XMLHttpRequest"
       }
 
-      this.on("success", (_file, response) => {
-        const uploadedUrl = response?.secure_url || response?.url
-        if (!uploadedUrl) return
+      const response = await fetch(endpoint, { method: "POST", headers, body: formData })
+      const data = await response.json().catch(() => ({}))
 
-        if (options.hiddenInput) options.hiddenInput.value = uploadedUrl
-        if (options.previewImg) options.previewImg.src = uploadedUrl
-        if (options.previewCard) options.previewCard.classList.remove("d-none")
-        this.removeAllFiles()
-        if (typeof options.onUploaded === "function") options.onUploaded(uploadedUrl)
-      })
+      if (!response.ok) {
+        throw new Error(data?.error?.message || data?.error || fallbackUploadError)
+      }
 
-      this.on("error", (file, errorMessage) => {
-        const msg = typeof errorMessage === "string"
-          ? errorMessage
-          : (errorMessage?.error?.message || errorMessage?.error || fallbackUploadError)
-        window.alert(msg)
-        this.removeFile(file)
-      })
+      const uploadedUrl = data?.secure_url || data?.url
+      if (!uploadedUrl) throw new Error(fallbackUploadError)
+
+      if (options.hiddenInput) options.hiddenInput.value = uploadedUrl
+      if (options.previewImg) options.previewImg.src = uploadedUrl
+      if (options.previewCard) options.previewCard.classList.remove("d-none")
+      if (typeof options.onUploaded === "function") options.onUploaded(uploadedUrl)
+    } catch (err) {
+      window.alert(err?.message || fallbackUploadError)
+    } finally {
+      isUploading = false
+      element.classList.remove("is-uploading")
+      messageEl.innerHTML = idleHtml
+      fileInput.value = ""
     }
-  })
+  }
+
+  const onClick = (e) => {
+    if (e.target !== fileInput && !isUploading) fileInput.click()
+  }
+  const onKeyDown = (e) => {
+    if ((e.key === "Enter" || e.key === " ") && !isUploading) {
+      e.preventDefault()
+      fileInput.click()
+    }
+  }
+  const onFileChange = () => {
+    if (fileInput.files && fileInput.files[0]) uploadFile(fileInput.files[0])
+  }
+  const onDragOver = (e) => {
+    e.preventDefault()
+    if (!isUploading) element.classList.add("dz-drag-hover")
+  }
+  const onDragLeave = (e) => {
+    e.preventDefault()
+    element.classList.remove("dz-drag-hover")
+  }
+  const onDrop = (e) => {
+    e.preventDefault()
+    element.classList.remove("dz-drag-hover")
+    const file = e.dataTransfer?.files?.[0]
+    if (file) uploadFile(file)
+  }
+
+  element.addEventListener("click", onClick)
+  element.addEventListener("keydown", onKeyDown)
+  fileInput.addEventListener("change", onFileChange)
+  element.addEventListener("dragover", onDragOver)
+  element.addEventListener("dragleave", onDragLeave)
+  element.addEventListener("drop", onDrop)
+
+  const controller = {
+    destroy() {
+      element.removeEventListener("click", onClick)
+      element.removeEventListener("keydown", onKeyDown)
+      fileInput.removeEventListener("change", onFileChange)
+      element.removeEventListener("dragover", onDragOver)
+      element.removeEventListener("dragleave", onDragLeave)
+      element.removeEventListener("drop", onDrop)
+      element.dropzone = null
+    }
+  }
+
+  element.dropzone = controller
+  return controller
 }
 
 function initAuthModalControls() {
@@ -159,21 +250,30 @@ function initAuthModalControls() {
   })
 }
 
+function mountModalDropzoneIfNeeded() {
+  const dzEl = document.getElementById("modalDropzone")
+  if (dzEl && !dzEl.dropzone) {
+    window.mountCloudDropzone(dzEl, {
+      hiddenInput: document.getElementById("modalInventoryImageUrl"),
+      previewCard: document.getElementById("modalImagePreviewCard"),
+      previewImg: document.getElementById("modalImagePreviewImg"),
+      removeBtn: document.getElementById("modalRemoveImgBtn")
+    })
+  }
+}
+
 function initNewInventoryModal() {
   const modalEl = document.getElementById("newInventoryModal")
-  if (!modalEl || modalEl.dataset.initialized === "true") return
-  modalEl.dataset.initialized = "true"
+  if (!modalEl) return
+
+  // Mount dropzone immediately so it is visible as soon as the modal opens
+  mountModalDropzoneIfNeeded()
+
+  if (modalEl._inventoryModalInitialized) return
+  modalEl._inventoryModalInitialized = true
 
   modalEl.addEventListener("shown.bs.modal", () => {
-    const dzEl = document.getElementById("modalDropzone")
-    if (dzEl && !dzEl.dropzone) {
-      window.mountCloudDropzone(dzEl, {
-        hiddenInput: document.getElementById("modalInventoryImageUrl"),
-        previewCard: document.getElementById("modalImagePreviewCard"),
-        previewImg: document.getElementById("modalImagePreviewImg"),
-        removeBtn: document.getElementById("modalRemoveImgBtn")
-      })
-    }
+    mountModalDropzoneIfNeeded()
 
     const tagInput = document.getElementById("modalTagInput")
     if (tagInput && window.TomSelect && !tagInput.tomselect) {
@@ -214,8 +314,13 @@ function initNewInventoryModal() {
   })
 }
 
-// Fix G3: Clean up open Bootstrap modals & backdrops before Turbo caches a page
+// Fix G3: Clean up open Bootstrap modals, dropzones & backdrops before Turbo caches a page
 document.addEventListener("turbo:before-cache", () => {
+  const dzEl = document.getElementById("modalDropzone")
+  if (dzEl?.dropzone && typeof dzEl.dropzone.destroy === "function") {
+    dzEl.dropzone.destroy()
+  }
+
   document.querySelectorAll(".modal.show").forEach((modalEl) => {
     window.bootstrap?.Modal?.getInstance(modalEl)?.hide()
     modalEl.classList.remove("show")

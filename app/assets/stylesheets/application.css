@@ -220,27 +220,38 @@ html[data-bs-theme="dark"] .navbar-glass {
   animation: likePop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Ready-Made Dropzone.js Enterprise Styling */
+/* Native Cloud Dropzone Enterprise Styling */
+.cloud-dropzone,
 .cloud-dropzone.dropzone {
+  width: 100%;
   min-height: 118px !important;
   border: 1.5px dashed rgba(var(--bs-primary-rgb), 0.4) !important;
   border-radius: 0.85rem !important;
   background-color: var(--saas-surface-subtle) !important;
   padding: 1rem !important;
-  display: flex;
+  display: flex !important;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: border-color 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
 }
 
+.cloud-dropzone:hover,
+.cloud-dropzone.dz-drag-hover,
 .cloud-dropzone.dropzone:hover,
 .cloud-dropzone.dropzone.dz-drag-hover {
   border-color: var(--bs-primary) !important;
   background-color: rgba(var(--bs-primary-rgb), 0.06) !important;
 }
 
+.cloud-dropzone.is-uploading {
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.cloud-dropzone .dz-message,
 .cloud-dropzone.dropzone .dz-message {
   margin: 0 !important;
 }

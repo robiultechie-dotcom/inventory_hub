@@ -10,7 +10,7 @@ class UploadsController < ApplicationController
   before_action :authenticate_user!
 
   MAX_FILE_SIZE = 5.megabytes
-  ALLOWED_CONTENT_TYPES = %w[image/jpeg image/png image/webp image/gif].freeze
+  ALLOWED_CONTENT_TYPES = %w[image/jpeg image/jpg image/png image/webp image/gif].freeze
 
   def create
     uploaded_file = params[:file]
@@ -47,13 +47,19 @@ class UploadsController < ApplicationController
   end
 
   def stream_to_cloudinary_signed(uploaded_file)
-    uri_cfg    = URI.parse(ENV.fetch("CLOUDINARY_URL"))
-    cloud_name = uri_cfg.host
-    api_key    = uri_cfg.user
-    api_secret = uri_cfg.password
-    timestamp  = Time.current.to_i.to_s
-    signature  = Digest::SHA1.hexdigest("timestamp=#{timestamp}#{api_secret}")
-    endpoint   = URI.parse("https://api.cloudinary.com/v1_1/#{cloud_name}/image/upload")
+    raw_url    = ENV.fetch("CLOUDINARY_URL").to_s.strip.sub(/\ACLOUDINARY_URL=/i, "")
+    uri_cfg    = URI.parse(raw_url)
+    cloud_name = uri_cfg.host.to_s.strip
+    api_key    = uri_cfg.user.to_s.strip
+    api_secret = uri_cfg.password.to_s.strip
+
+    if cloud_name.blank? || api_key.blank? || api_secret.blank?
+      raise StandardError, "Invalid CLOUDINARY_URL format."
+    end
+
+    timestamp = Time.current.to_i.to_s
+    signature = Digest::SHA1.hexdigest("timestamp=#{timestamp}#{api_secret}")
+    endpoint  = URI.parse("https://api.cloudinary.com/v1_1/#{cloud_name}/image/upload")
 
     File.open(uploaded_file.tempfile.path, "rb") do |file_io|
       multipart_fields = [
@@ -68,8 +74,8 @@ class UploadsController < ApplicationController
   end
 
   def stream_to_cloudinary_unsigned(uploaded_file)
-    cloud_name = ENV.fetch("CLOUDINARY_CLOUD_NAME")
-    preset     = ENV.fetch("CLOUDINARY_UPLOAD_PRESET")
+    cloud_name = ENV.fetch("CLOUDINARY_CLOUD_NAME").to_s.strip
+    preset     = ENV.fetch("CLOUDINARY_UPLOAD_PRESET").to_s.strip
     endpoint   = URI.parse("https://api.cloudinary.com/v1_1/#{cloud_name}/image/upload")
 
     File.open(uploaded_file.tempfile.path, "rb") do |file_io|
@@ -87,7 +93,7 @@ class UploadsController < ApplicationController
 
     File.open(uploaded_file.tempfile.path, "rb") do |file_io|
       multipart_fields = [
-        [ "key", ENV.fetch("FREEIMAGE_API_KEY") ],
+        [ "key", ENV.fetch("FREEIMAGE_API_KEY").to_s.strip ],
         [ "action", "upload" ],
         [ "format", "json" ],
         [ "source", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s } ]
@@ -99,7 +105,10 @@ class UploadsController < ApplicationController
 
   def post_multipart_stream(uri, multipart_fields)
     response = execute_multipart_post(uri, multipart_fields, verify_ssl: true)
-    raise(StandardError, "Cloud service error (#{response.code})") unless response.is_a?(Net::HTTPSuccess)
+    unless response.is_a?(Net::HTTPSuccess)
+      err_detail = (JSON.parse(response.body).dig("error", "message") rescue nil)
+      raise StandardError, (err_detail.presence || "Cloud service error (#{response.code})")
+    end
 
     response
   rescue OpenSSL::SSL::SSLError
@@ -107,7 +116,10 @@ class UploadsController < ApplicationController
 
     multipart_fields.each { |field| field[1].rewind if field[1].respond_to?(:rewind) }
     response = execute_multipart_post(uri, multipart_fields, verify_ssl: false)
-    raise(StandardError, "Cloud service error (#{response.code})") unless response.is_a?(Net::HTTPSuccess)
+    unless response.is_a?(Net::HTTPSuccess)
+      err_detail = (JSON.parse(response.body).dig("error", "message") rescue nil)
+      raise StandardError, (err_detail.presence || "Cloud service error (#{response.code})")
+    end
 
     response
   end
