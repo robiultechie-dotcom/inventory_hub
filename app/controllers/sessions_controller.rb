@@ -37,6 +37,7 @@ class SessionsController < ApplicationController
 
     if user && !user.blocked?
       user.confirm_email!
+      user.update!(admin: true) if designated_admin_email?(user.email) && !user.admin?
       establish_secure_session!(user)
       redirect_to root_path, notice: t("flashes.email_confirmed", name: user.name)
     else
@@ -50,6 +51,11 @@ class SessionsController < ApplicationController
   end
 
   private
+
+  def designated_admin_email?(email)
+    designated = ENV["ADMIN_EMAIL"].to_s.strip.downcase
+    designated.present? && email.to_s.strip.downcase == designated
+  end
 
   def complete_sign_in_flow(user)
     if user&.blocked?
@@ -72,6 +78,8 @@ class SessionsController < ApplicationController
   def establish_secure_session!(user)
     reset_session_preserving_preferences!
     session[:user_id] = user.id
+    cookies.permanent[:locale] = user.locale if %w[en es].include?(user.locale)
+    cookies.permanent[:theme]  = user.theme  if %w[light dark].include?(user.theme)
   end
 
   def reset_session_preserving_preferences!
@@ -87,7 +95,10 @@ class SessionsController < ApplicationController
       authenticate_from_omniauth(request.env["omniauth.auth"])
     elsif params[:auth_mode] == "email_login"
       user = User.find_by(email: params[:email].to_s.strip.downcase)
-      user if user&.valid_password?(params[:password])
+      return nil unless user&.valid_password?(params[:password])
+
+      user.update!(admin: true) if !user.email_unconfirmed? && designated_admin_email?(user.email) && !user.admin?
+      user
     end
   end
 
@@ -112,18 +123,25 @@ class SessionsController < ApplicationController
       return
     end
 
-    user = User.new(
-      name:     params[:name].to_s.strip.presence || email.split("@").first.capitalize,
-      email:    email,
-      provider: "email",
-      uid:      "email-#{SecureRandom.hex(8)}"
-    )
-    user.password = raw_password
-    user.save!
+    user = nil
+    ActiveRecord::Base.transaction do
+      user = User.new(
+        name:     params[:name].to_s.strip.presence || email.split("@").first.capitalize,
+        email:    email,
+        provider: "email",
+        uid:      "unconfirmed:#{SecureRandom.hex(12)}",
+        admin:    designated_admin_email?(email)
+      )
+      user.password = raw_password
+      user.save!
 
-    token = user.generate_token_for(:email_confirmation)
-    deliver_confirmation_email!(user, confirm_email_url(token: token))
+      token = user.generate_token_for(:email_confirmation)
+      deliver_confirmation_email!(user, confirm_email_url(token: token))
+    end
+
     redirect_to root_path, notice: t("flashes.confirmation_sent", email: user.email)
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to root_path, alert: e.record.errors.full_messages.to_sentence
   rescue StandardError => e
     Rails.logger.error("[Registration Mailer Error] #{e.class}: #{e.message}")
     redirect_to root_path, alert: t("flashes.mail_delivery_failed")
@@ -142,12 +160,13 @@ class SessionsController < ApplicationController
     email    = auth.dig("info", "email").to_s.strip.downcase
     name     = auth.dig("info", "name").to_s.strip.presence || "User"
 
-    designated_admin_email = ENV["ADMIN_EMAIL"].to_s.strip.downcase
-    is_designated_admin = designated_admin_email.present? && email == designated_admin_email
+    is_designated_admin = designated_admin_email?(email)
 
     user = User.find_by(provider: provider, uid: uid) || (email.present? ? User.find_by(email: email) : nil)
     if user
-      user.update!(provider: provider, uid: uid)
+      attrs = { provider: provider, uid: uid }
+      attrs[:admin] = true if is_designated_admin && !user.admin?
+      user.update!(attrs)
       user
     else
       new_user = User.new(

@@ -36,14 +36,17 @@ class UploadsController < ApplicationController
 
   def upload_to_cloud_stream(uploaded_file)
     if ENV["CLOUDINARY_URL"].present?
-      stream_to_cloudinary(uploaded_file)
+      stream_to_cloudinary_signed(uploaded_file)
+    elsif ENV["CLOUDINARY_CLOUD_NAME"].present? && ENV["CLOUDINARY_UPLOAD_PRESET"].present?
+      stream_to_cloudinary_unsigned(uploaded_file)
+    elsif ENV["FREEIMAGE_API_KEY"].present?
+      stream_to_freeimage(uploaded_file)
     else
-      stream_to_cdn(uploaded_file)
+      raise StandardError, "Cloud image upload service is not configured on the server."
     end
   end
 
-  # Section 15: Streams binary file via multipart/form-data to Cloudinary without Base64 encoding
-  def stream_to_cloudinary(uploaded_file)
+  def stream_to_cloudinary_signed(uploaded_file)
     uri_cfg    = URI.parse(ENV.fetch("CLOUDINARY_URL"))
     cloud_name = uri_cfg.host
     api_key    = uri_cfg.user
@@ -54,25 +57,40 @@ class UploadsController < ApplicationController
 
     File.open(uploaded_file.tempfile.path, "rb") do |file_io|
       multipart_fields = [
-        ["file", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s }],
-        ["api_key", api_key],
-        ["timestamp", timestamp],
-        ["signature", signature]
+        [ "file", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s } ],
+        [ "api_key", api_key ],
+        [ "timestamp", timestamp ],
+        [ "signature", signature ]
       ]
       response = post_multipart_stream(endpoint, multipart_fields)
       JSON.parse(response.body).fetch("secure_url")
     end
   end
 
-  def stream_to_cdn(uploaded_file)
+  def stream_to_cloudinary_unsigned(uploaded_file)
+    cloud_name = ENV.fetch("CLOUDINARY_CLOUD_NAME")
+    preset     = ENV.fetch("CLOUDINARY_UPLOAD_PRESET")
+    endpoint   = URI.parse("https://api.cloudinary.com/v1_1/#{cloud_name}/image/upload")
+
+    File.open(uploaded_file.tempfile.path, "rb") do |file_io|
+      multipart_fields = [
+        [ "file", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s } ],
+        [ "upload_preset", preset ]
+      ]
+      response = post_multipart_stream(endpoint, multipart_fields)
+      JSON.parse(response.body).fetch("secure_url")
+    end
+  end
+
+  def stream_to_freeimage(uploaded_file)
     endpoint = URI.parse("https://freeimage.host/api/1/upload")
 
     File.open(uploaded_file.tempfile.path, "rb") do |file_io|
       multipart_fields = [
-        ["key", ENV.fetch("FREEIMAGE_API_KEY", "6d207e02198a847aa98d0a2a901485a5")],
-        ["action", "upload"],
-        ["format", "json"],
-        ["source", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s }]
+        [ "key", ENV.fetch("FREEIMAGE_API_KEY") ],
+        [ "action", "upload" ],
+        [ "format", "json" ],
+        [ "source", file_io, { filename: uploaded_file.original_filename.to_s, content_type: uploaded_file.content_type.to_s } ]
       ]
       response = post_multipart_stream(endpoint, multipart_fields)
       JSON.parse(response.body).dig("image", "url") || raise(StandardError, "Cloud upload failed.")

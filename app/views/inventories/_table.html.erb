@@ -92,7 +92,7 @@
                     <% end %>
                   <% end %>
 
-                  <div>
+                  <div class="min-w-0">
                     <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
                       <%= link_to inventory.title, inventory_path(inventory), class: "fw-semibold text-body text-decoration-underline" %>
                       <span class="badge bg-body-tertiary text-secondary border font-mono" style="font-size: 0.7rem;">
@@ -104,7 +104,7 @@
                         </span>
                       <% end %>
                     </div>
-                    <div class="text-secondary small markdown-excerpt">
+                    <div class="text-secondary small markdown-excerpt markdown-excerpt-clamped">
                       <%= render_markdown(inventory.description) %>
                     </div>
                     <% if inventory.tags.any? %>
@@ -118,7 +118,7 @@
                 </div>
               </td>
               <td>
-                <span class="badge bg-body-secondary text-body border fw-medium rounded-pill px-2.5 py-1">
+                <span class="badge bg-body-secondary text-body border fw-medium rounded-pill px-2.5 py-1 text-nowrap">
                   <i class="bi <%= category_icon_class(inventory.category.name) %> me-1 text-primary"></i><%= localized_category_name(inventory.category) %>
                 </span>
               </td>
@@ -126,8 +126,8 @@
                 <div class="d-flex align-items-center gap-2">
                   <span class="avatar-circle"><%= user_initials(inventory.creator.name) %></span>
                   <div>
-                    <%= link_to inventory.creator.name, user_path(inventory.creator), class: "text-decoration-none fw-medium small d-block text-body" %>
-                    <span class="text-secondary font-mono" style="font-size: 0.72rem;"><%= localized_time_ago(inventory.created_at) %></span>
+                    <%= link_to inventory.creator.name, user_path(inventory.creator), class: "text-decoration-none fw-medium small d-block text-body text-nowrap" %>
+                    <span class="text-secondary font-mono text-nowrap" style="font-size: 0.72rem;"><%= localized_time_ago(inventory.created_at) %></span>
                   </div>
                 </div>
               </td>

@@ -20,6 +20,7 @@ const I18N_WORKSPACE = {
     conflict: "Version Conflict!",
     maxElements: "Maximum 10 elements allowed.",
     maxFields: "Maximum of 3 fields for this type already enabled.",
+    commentFailed: "Could not post comment. Please try again.",
     hints: {
       fixed: "A piece of unchanging text. E.g., you can use Unicode emoji.",
       random_20bit: "A random value. E.g., format it as a six-digit decimal (D6) or 5-digit hex (X5_).",
@@ -39,6 +40,7 @@ const I18N_WORKSPACE = {
     conflict: "¡Conflicto de versión!",
     maxElements: "Se permiten máximo 10 elementos.",
     maxFields: "Ya se habilitaron los 3 campos máximos de este tipo.",
+    commentFailed: "No se pudo publicar el comentario. Inténtalo de nuevo.",
     hints: {
       fixed: "Texto fijo inmutable. P. ej., puedes usar emojis Unicode.",
       random_20bit: "Valor aleatorio de 20 bits. Formatea como decimal (D6) o hex (X5_).",
@@ -56,12 +58,18 @@ export default class extends Controller {
   static targets = [
     "headerImage",
     "headerIcon",
+    "headerTitle",
+    "headerCategory",
+    "headerVisibility",
+    "headerDescription",
+    "headerTags",
     "itemsTableBody",
     "itemFilterInput",
     "itemSortSelect",
     "discussionList",
     "commentForm",
     "commentInput",
+    "commentSubmit",
     "autoSaveForm",
     "lockVersion",
     "forceOverwriteInput",
@@ -75,6 +83,7 @@ export default class extends Controller {
     "imagePreviewImg",
     "removeImgBtn",
     "idList",
+    "idEmptyState",
     "idPreview",
     "clearAllInput",
     "fieldsList",
@@ -90,6 +99,7 @@ export default class extends Controller {
     this.changeCounter = 0
     this.lastSavedCounter = 0
     this.activeSavePromise = null
+    this.isSubmittingComment = false
     this.popoverInstances = []
 
     this.beforeUnloadHandler = (event) => {
@@ -184,6 +194,9 @@ export default class extends Controller {
     })
 
     rows.forEach((row) => this.itemsTableBodyTarget.appendChild(row))
+
+    // Fix F10: Notify TableSelectionController to uncheck hidden rows & re-sync toolbar
+    this.itemsTableBodyTarget.dispatchEvent(new CustomEvent("table:filtered", { bubbles: true }))
   }
 
   initDiscussionPolling() {
@@ -193,38 +206,69 @@ export default class extends Controller {
     this.pollTimer = setInterval(async () => {
       try {
         const res = await fetch(url, { headers: { Accept: "text/html", "X-Requested-With": "XMLHttpRequest" } })
-        if (res.status === 200) {
+        if (res.status === 200 && !res.redirected) {
+          const contentType = res.headers.get("content-type") || ""
+          if (!contentType.includes("text/html")) return
+
           const html = await res.text()
           if (this.discussionListTarget.innerHTML.trim() !== html.trim()) {
             this.discussionListTarget.innerHTML = html
           }
+          this.updateChatTabCount(res.headers.get("X-Comments-Count"))
         }
       } catch (_) {}
     }, 3000)
   }
 
+  updateChatTabCount(countHeader) {
+    if (countHeader === null || countHeader === undefined) return
+    const badge = document.getElementById("chatTabCount")
+    if (badge) badge.textContent = countHeader
+  }
+
   async submitComment(event) {
     event.preventDefault()
-    if (!this.hasCommentFormTarget || !this.hasCommentInputTarget) return
+    if (this.isSubmittingComment || !this.hasCommentFormTarget || !this.hasCommentInputTarget) return
     const body = this.commentInputTarget.value.trim()
     if (!body) return
+
+    this.isSubmittingComment = true
+    if (this.hasCommentSubmitTarget) this.commentSubmitTarget.disabled = true
 
     const formData = new FormData(this.commentFormTarget)
     try {
       const res = await fetch(this.commentFormTarget.action, {
         method: "POST",
         headers: {
+          Accept: "text/html, application/json",
           "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content,
           "X-Requested-With": "XMLHttpRequest"
         },
         body: formData
       })
-      if (res.ok) {
+
+      // Fix F6: Never inject redirected full-page HTML into discussion box
+      if (res.status === 401 || res.redirected) {
+        window.location.reload()
+        return
+      }
+
+      const contentType = res.headers.get("content-type") || ""
+      if (res.ok && contentType.includes("text/html")) {
         const html = await res.text()
         if (this.hasDiscussionListTarget) this.discussionListTarget.innerHTML = html
+        this.updateChatTabCount(res.headers.get("X-Comments-Count"))
         this.commentInputTarget.value = ""
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        window.alert(errData.error || this.dict.commentFailed)
       }
-    } catch (_) {}
+    } catch (_) {
+      window.alert(this.dict.commentFailed)
+    } finally {
+      this.isSubmittingComment = false
+      if (this.hasCommentSubmitTarget) this.commentSubmitTarget.disabled = false
+    }
   }
 
   initUnifiedAutoSave() {
@@ -280,6 +324,56 @@ export default class extends Controller {
     }
   }
 
+  // Fix F9: Synchronize hero header & tab counters after AJAX auto-save
+  syncHeaderFromResponse(data) {
+    if (this.hasHeaderTitleTarget && data.title) {
+      this.headerTitleTarget.textContent = data.title
+    }
+
+    if (this.hasHeaderCategoryTarget && data.category_name) {
+      this.headerCategoryTarget.innerHTML = ""
+      const icon = document.createElement("i")
+      icon.className = `bi ${data.category_icon || "bi-box-seam"} me-1 text-primary`
+      this.headerCategoryTarget.append(icon, document.createTextNode(data.category_name))
+    }
+
+    if (this.hasHeaderVisibilityTarget && typeof data.is_public === "boolean") {
+      this.headerVisibilityTarget.className = `badge rounded-pill px-3 py-1 ${
+        data.is_public
+          ? "bg-success-subtle text-success border border-success-subtle"
+          : "bg-secondary-subtle text-secondary border border-secondary-subtle"
+      }`
+      this.headerVisibilityTarget.innerHTML = ""
+      const icon = document.createElement("i")
+      icon.className = `bi ${data.is_public ? "bi-globe2" : "bi-lock-fill"} me-1`
+      this.headerVisibilityTarget.append(icon, document.createTextNode(data.visibility_label || ""))
+    }
+
+    if (this.hasHeaderDescriptionTarget && typeof data.description_html === "string") {
+      this.headerDescriptionTarget.innerHTML = data.description_html
+    }
+
+    if (this.hasHeaderTagsTarget && Array.isArray(data.tags)) {
+      this.headerTagsTarget.innerHTML = ""
+      this.headerTagsTarget.classList.toggle("d-none", data.tags.length === 0)
+      data.tags.forEach((tag) => {
+        const link = document.createElement("a")
+        link.href = tag.url
+        link.className = "tag-pill-cloud tag-weight-1"
+        const hash = document.createElement("span")
+        hash.className = "text-primary"
+        hash.textContent = "#"
+        link.append(hash, document.createTextNode(tag.name))
+        this.headerTagsTarget.appendChild(link)
+      })
+    }
+
+    const fieldsCountEl = document.getElementById("fieldsTabCount")
+    if (fieldsCountEl && typeof data.active_fields_count === "number") {
+      fieldsCountEl.textContent = String(data.active_fields_count)
+    }
+  }
+
   async executeAutoSaveRequest() {
     const snapshotCounter = this.changeCounter
     const headerBadge = document.getElementById("autoSaveBadge")
@@ -313,6 +407,8 @@ export default class extends Controller {
           this.idPreviewTarget.textContent = data.id_preview
         }
         if (this.hasConflictBannerTarget) this.conflictBannerTarget.classList.add("d-none")
+
+        this.syncHeaderFromResponse(data)
 
         if (headerBadge) {
           if (this.changeCounter > this.lastSavedCounter) {
@@ -440,6 +536,7 @@ export default class extends Controller {
 
       this.idSortable = new window.Sortable(this.idListTarget, {
         handle: ".drag-handle",
+        draggable: ".id-element-row",
         animation: 150,
         onStart: () => {
           pointerOutside = false
@@ -502,6 +599,15 @@ export default class extends Controller {
     }
   }
 
+  // Fix G8: Accessible click-to-remove for mobile & desktop users
+  removeIdElement(event) {
+    const row = event.currentTarget.closest(".id-element-row")
+    if (!row) return
+    row.remove()
+    this.computeIdPreview()
+    this.markDirty()
+  }
+
   formatTokenWithAffixes(num, spec, defaultSpec) {
     const raw = (spec || defaultSpec).trim()
     const match = raw.match(/^(.*?)([DXdx]\d+)(.*)$/) ||
@@ -521,6 +627,10 @@ export default class extends Controller {
     if (!this.hasIdListTarget || !this.hasIdPreviewTarget) return
     const rows = this.idListTarget.querySelectorAll(".id-element-row")
     const nextSeq = parseInt(this.idListTarget.dataset.nextSeq || "1", 10) || 1
+
+    if (this.hasIdEmptyStateTarget) {
+      this.idEmptyStateTarget.classList.toggle("d-none", rows.length > 0)
+    }
 
     if (rows.length === 0) {
       if (this.hasClearAllInputTarget) this.clearAllInputTarget.value = "1"

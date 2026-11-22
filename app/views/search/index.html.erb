@@ -123,8 +123,8 @@
                   </div>
                 </td>
                 <td class="text-end pe-4">
-                  <span class="badge rounded-pill font-mono px-2.5 py-1 <%= liked ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-body-tertiary text-secondary border' %>">
-                    <i class="bi <%= liked ? 'bi-heart-fill' : 'bi-heart' %> me-1"></i>
+                  <span data-like-badge class="badge rounded-pill font-mono px-2.5 py-1 <%= liked ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-body-tertiary text-secondary border' %>">
+                    <i data-like-icon class="bi <%= liked ? 'bi-heart-fill' : 'bi-heart' %> me-1"></i>
                     <span data-like-count><%= item.likes_count %></span>
                   </span>
                 </td>

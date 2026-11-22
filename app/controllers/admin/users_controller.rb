@@ -2,6 +2,8 @@
 
 module Admin
   class UsersController < ApplicationController
+    ALLOWED_OPERATIONS = %w[block unblock make_admin remove_admin delete].freeze
+
     before_action :require_admin!
 
     def index
@@ -12,8 +14,13 @@ module Admin
     def bulk_action
       ids = Array(params[:ids]).map(&:to_i).uniq
       operation = (params[:operation].presence || params[:action_type]).to_s
-      target_users = User.where(id: ids)
 
+      unless ALLOWED_OPERATIONS.include?(operation)
+        redirect_to admin_users_path, alert: t("flashes.unauthorized")
+        return
+      end
+
+      target_users = User.where(id: ids)
       if target_users.empty?
         redirect_to admin_users_path, alert: t("flashes.no_users_selected")
         return
@@ -52,16 +59,6 @@ module Admin
       end
 
       redirect_to admin_users_path, notice: t("flashes.users_updated")
-    end
-
-    private
-
-    def require_admin!
-      if current_user.nil?
-        redirect_to root_path, alert: t("flashes.auth_required")
-      elsif !current_user.admin?
-        redirect_to root_path, alert: t("flashes.admin_required")
-      end
     end
   end
 end

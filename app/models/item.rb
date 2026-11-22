@@ -47,7 +47,9 @@ class Item < ApplicationRecord
       "OR items.custom_string1_val ILIKE :like " \
       "OR items.custom_string2_val ILIKE :like " \
       "OR items.custom_string3_val ILIKE :like " \
-      "OR items.custom_text1_val ILIKE :like",
+      "OR items.custom_text1_val ILIKE :like " \
+      "OR items.custom_text2_val ILIKE :like " \
+      "OR items.custom_text3_val ILIKE :like",
       q: q,
       like: sanitized_like
     )
@@ -61,7 +63,7 @@ class Item < ApplicationRecord
 
   def search_index_text
     values = inventory.table_custom_fields.map { |f| public_send(f[:value_column]).to_s }
-    [custom_id, created_by&.name, *values].compact.join(" ").downcase
+    [ custom_id, created_by&.name, *values ].compact.join(" ").downcase
   end
 
   private

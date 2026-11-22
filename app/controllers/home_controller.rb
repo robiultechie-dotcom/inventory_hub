@@ -9,8 +9,8 @@ class HomeController < ApplicationController
 
     @stats = {
       inventories_count: Inventory.count,
-      items_count: Item.count,
-      tags_count: Tag.count
+      items_count:       Item.count,
+      tags_count:        Tag.popular.count
     }
   end
 end

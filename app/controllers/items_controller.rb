@@ -19,9 +19,10 @@ class ItemsController < ApplicationController
   def create
     @active_fields = @inventory.active_custom_fields
     submitted_attrs = item_params.to_h
+    submitted_id = submitted_attrs["custom_id"].to_s
+    manually_edited = submitted_id.present? && submitted_id != params[:initial_generated_id].to_s
 
-    # Section 6: Generate fresh Custom ID at the exact moment of item creation unless manually edited by user
-    if submitted_attrs["custom_id"].blank? || submitted_attrs["custom_id"] == params[:initial_generated_id].to_s
+    unless manually_edited
       submitted_attrs["custom_id"] = CustomIdGenerator.new(@inventory).generate(preview: false, timestamp: Time.current)
     end
 
@@ -31,12 +32,12 @@ class ItemsController < ApplicationController
     if @item.save
       redirect_to inventory_path(@inventory, tab: "items"), notice: t("flashes.item_created")
     else
-      @initial_generated_id = @item.custom_id
+      @initial_generated_id = manually_edited ? "" : @item.custom_id
       render :new, status: :unprocessable_entity
     end
   rescue ActiveRecord::RecordNotUnique
     @item.errors.add(:custom_id, :taken)
-    @initial_generated_id = @item.custom_id
+    @initial_generated_id = manually_edited ? "" : @item.custom_id
     render :new, status: :unprocessable_entity
   end
 
@@ -82,10 +83,10 @@ class ItemsController < ApplicationController
     liked = if existing_like
               existing_like.destroy
               false
-            else
+    else
               @item.likes.create!(user: current_user)
               true
-            end
+    end
 
     @item.reload
     respond_to do |format|

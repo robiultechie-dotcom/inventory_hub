@@ -19,7 +19,7 @@ class User < ApplicationRecord
 
   before_validation :normalize_email
 
-  # Rails 8 built-in cryptographic signed token (expires in 24h & invalidates automatically once uid changes)
+  # Rails 8 cryptographic signed token (expires in 24h & auto-invalidates once uid changes)
   generates_token_for :email_confirmation, expires_in: 24.hours do
     uid
   end
@@ -39,7 +39,7 @@ class User < ApplicationRecord
   end
 
   def email_unconfirmed?
-    provider == "email" && uid == "unconfirmed"
+    provider == "email" && uid.to_s.start_with?("unconfirmed:")
   end
 
   def confirm_email!

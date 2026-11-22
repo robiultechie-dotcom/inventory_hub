@@ -73,29 +73,33 @@
       <% @active_fields.each do |field| %>
         <% col = field[:value_column] %>
         <div class="<%= field[:type] == 'text' ? 'col-12' : 'col-md-6' %>">
-          <div class="d-flex align-items-center justify-content-between mb-1">
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
             <%= f.label col, field[:name], class: "form-label modern-label mb-0" %>
             <% if field[:description].present? %>
-              <span class="text-secondary small" data-bs-toggle="tooltip" title="<%= field[:description] %>">
-                <i class="bi bi-info-circle me-1"></i><%= field[:description] %>
+              <span class="text-secondary small flex-shrink-0" data-bs-toggle="tooltip" title="<%= field[:description] %>">
+                <i class="bi bi-info-circle"></i>
               </span>
             <% end %>
           </div>
 
           <% case field[:type] %>
           <% when "string" %>
-            <%= f.text_field col, class: "form-control modern-input", maxlength: 255, title: field[:description] %>
+            <%= f.text_field col, class: "form-control modern-input", maxlength: 255 %>
           <% when "text" %>
-            <%= f.text_area col, rows: 3, class: "form-control modern-input", title: field[:description] %>
+            <%= f.text_area col, rows: 3, class: "form-control modern-input" %>
           <% when "int" %>
-            <%= f.number_field col, step: "any", class: "form-control modern-input font-mono", title: field[:description] %>
+            <%= f.number_field col, step: "any", class: "form-control modern-input font-mono" %>
           <% when "link" %>
-            <%= f.url_field col, class: "form-control modern-input font-mono", placeholder: "https://...", title: field[:description] %>
+            <%= f.url_field col, class: "form-control modern-input font-mono", placeholder: "https://..." %>
           <% when "bool" %>
             <div class="form-check form-switch pt-1">
               <%= f.check_box col, class: "form-check-input fs-5" %>
               <%= f.label col, t('common.true_yes'), class: "form-check-label small ms-1" %>
             </div>
+          <% end %>
+
+          <% if field[:description].present? %>
+            <div class="form-text small"><%= field[:description] %></div>
           <% end %>
         </div>
       <% end %>

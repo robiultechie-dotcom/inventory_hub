@@ -95,6 +95,9 @@ export default class extends Controller {
           </div>
         `
       },
+      onFocus: () => this.updateHintVisibility(true),
+      onBlur: () => this.updateHintVisibility(false),
+      onType: () => this.updateHintVisibility(true),
       onChange: (value) => {
         if (value) window.location.href = value
       }
@@ -104,11 +107,35 @@ export default class extends Controller {
       if (e.key === "Enter" && this.tomselect.inputValue().trim().length > 0 && !this.tomselect.getValue()) {
         e.preventDefault()
         window.location.href = `/search?q=${encodeURIComponent(this.tomselect.inputValue().trim())}`
+      } else if (e.key === "Escape") {
+        this.tomselect.blur()
       }
     })
+
+    // Fix F5: Global '/' keyboard shortcut to focus search bar
+    this.shortcutHandler = (e) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable || target?.closest?.(".CodeMirror")) {
+        return
+      }
+      e.preventDefault()
+      this.tomselect?.focus()
+    }
+    document.addEventListener("keydown", this.shortcutHandler)
+  }
+
+  updateHintVisibility(isFocused) {
+    const hasText = Boolean(this.tomselect?.inputValue()?.trim()?.length)
+    this.element.classList.toggle("is-active", isFocused || hasText)
   }
 
   disconnect() {
+    if (this.shortcutHandler) {
+      document.removeEventListener("keydown", this.shortcutHandler)
+      this.shortcutHandler = null
+    }
     if (this.tomselect) {
       this.tomselect.destroy()
       this.tomselect = null

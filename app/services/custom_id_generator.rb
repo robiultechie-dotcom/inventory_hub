@@ -17,6 +17,13 @@ class CustomIdGenerator
   MAX_20BIT = (1 << 20) - 1
   MAX_32BIT = (1 << 32) - 1
 
+  MAX_DIGITS_BY_TYPE = {
+    "random_20bit"  => { 10 => 7, 16 => 5 },
+    "random_32bit"  => { 10 => 10, 16 => 8 },
+    "random_6digit" => { 10 => 6, 16 => 5 },
+    "random_9digit" => { 10 => 9, 16 => 8 }
+  }.freeze
+
   def initialize(inventory)
     @inventory = inventory
     @elements = normalize_elements(inventory&.custom_id_config)
@@ -25,11 +32,11 @@ class CustomIdGenerator
   def generate(preview: false, static_preview: false, timestamp: Time.current)
     seq_num = if static_preview
                 (@inventory&.items_count.to_i + 1)
-              elsif preview
+    elsif preview
                 preview_sequence_number
-              else
+    else
                 next_sequence_number
-              end
+    end
 
     return format("ITEM-%04d", seq_num) if @elements.empty?
 
@@ -44,23 +51,21 @@ class CustomIdGenerator
     Regexp.new("\\A#{pattern}\\z").match?(candidate_id.to_s)
   end
 
-  # Section 6: Sequence equals the largest existing sequence number + 1 at the moment of item creation
   def next_sequence_number
     return 1 unless @inventory&.persisted?
 
     existing_ids = @inventory.items.pluck(:custom_id)
     return 1 if existing_ids.empty?
 
-    seq_regex = build_sequence_extraction_regex
+    seq_regex, seq_base = build_sequence_extraction_regex
     if seq_regex
       matched_sequences = existing_ids.filter_map do |cid|
         m = seq_regex.match(cid.to_s)
-        m[:seq].to_i if m && m.names.include?("seq")
+        m[:seq].to_i(seq_base) if m && m.names.include?("seq")
       end
       return matched_sequences.max + 1 if matched_sequences.any?
     end
 
-    # Fallback across format changes: check legacy ITEM-0001 or trailing sequence tokens
     legacy_sequences = existing_ids.filter_map do |cid|
       str = cid.to_s
       if (m = str.match(/\AITEM-(\d+)\z/))
@@ -88,6 +93,26 @@ class CustomIdGenerator
       spec = entry["format"].presence || entry["value"].to_s
       { "type" => type, "spec" => spec }
     end.first(10)
+  end
+
+  def parse_numeric_spec(spec, default_code)
+    raw = spec.to_s.strip.presence || default_code
+    match = raw.match(/\A(.*?)([DXdx]\d+)(.*)\z/) ||
+            raw.match(/\A(.*?)(?<![A-Za-z])([DXdx])(?![A-Za-z])(.*)\z/) ||
+            raw.match(/\A([^DXdx]*)([DXdx])(.*)\z/)
+    return nil unless match
+
+    prefix, code, suffix = match.captures
+    digits = code[1..].to_i
+    base = code.downcase.start_with?("x") ? 16 : 10
+    {
+      prefix:    prefix,
+      code:      code,
+      suffix:    suffix,
+      digits:    digits,
+      base:      base,
+      uppercase: code.start_with?("X")
+    }
   end
 
   def render_element(element, seq_num:, preview:, timestamp:)
@@ -121,17 +146,13 @@ class CustomIdGenerator
   end
 
   def format_number_with_affixes(number, spec, default_code)
-    raw = spec.strip.presence || default_code
-    match = raw.match(/\A([^DXdx]*)([DXdx]\d*)(.*)\z/)
-    return number.to_s unless match
+    parsed = parse_numeric_spec(spec, default_code)
+    return number.to_s unless parsed
 
-    prefix, code, suffix = match.captures
-    digits = code[1..].to_i
-    base   = code.downcase.start_with?("x") ? 16 : 10
-    core   = number.to_i.to_s(base)
-    core   = core.rjust(digits, "0") if digits.positive?
-    core   = code.start_with?("X") ? core.upcase : core.downcase
-    "#{prefix}#{core}#{suffix}"
+    core = number.to_i.to_s(parsed[:base])
+    core = core.rjust(parsed[:digits], "0") if parsed[:digits].positive?
+    core = parsed[:uppercase] ? core.upcase : core.downcase
+    "#{parsed[:prefix]}#{core}#{parsed[:suffix]}"
   end
 
   def format_datetime(time, spec)
@@ -153,30 +174,31 @@ class CustomIdGenerator
   end
 
   def build_sequence_extraction_regex
-    return nil unless @elements.any? { |el| el["type"] == "sequence" }
+    return [ nil, 10 ] unless @elements.any? { |el| el["type"] == "sequence" }
 
     captured = false
+    seq_base = 10
     pattern = @elements.map do |el|
       if el["type"] == "sequence" && !captured
         captured = true
-        sequence_capture_fragment(el["spec"].to_s)
+        fragment, seq_base = sequence_capture_fragment(el["spec"].to_s)
+        fragment
       else
         element_regex_fragment(el)
       end
     end.join
 
-    Regexp.new("\\A#{pattern}\\z")
+    [ Regexp.new("\\A#{pattern}\\z"), seq_base ]
   rescue RegexpError
-    nil
+    [ nil, 10 ]
   end
 
   def sequence_capture_fragment(spec)
-    raw = spec.strip.presence || "D3"
-    match = raw.match(/\A([^DXdx]*)([DXdx]\d*)(.*)\z/)
-    return "(?<seq>\\d+)" unless match
+    parsed = parse_numeric_spec(spec, "D3")
+    return [ "(?<seq>\\d+)", 10 ] unless parsed
 
-    prefix, _code, suffix = match.captures
-    "#{Regexp.escape(prefix)}(?<seq>\\d+)#{Regexp.escape(suffix)}"
+    char_class = parsed[:base] == 16 ? "[0-9a-fA-F]" : "\\d"
+    [ "#{Regexp.escape(parsed[:prefix])}(?<seq>#{char_class}+)#{Regexp.escape(parsed[:suffix])}", parsed[:base] ]
   end
 
   def element_regex_fragment(element)
@@ -187,13 +209,13 @@ class CustomIdGenerator
     when "fixed"
       Regexp.escape(spec)
     when "random_20bit"
-      numeric_regex_fragment(spec, "X5")
+      numeric_regex_fragment(spec, "X5", type: type)
     when "random_32bit"
-      numeric_regex_fragment(spec, "X8")
+      numeric_regex_fragment(spec, "X8", type: type)
     when "random_6digit"
-      numeric_regex_fragment(spec, "D6")
+      numeric_regex_fragment(spec, "D6", type: type)
     when "random_9digit"
-      numeric_regex_fragment(spec, "D9")
+      numeric_regex_fragment(spec, "D9", type: type)
     when "guid"
       "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
     when "datetime"
@@ -205,21 +227,27 @@ class CustomIdGenerator
     end
   end
 
-  def numeric_regex_fragment(spec, default_code, allow_wider: false)
-    raw = spec.strip.presence || default_code
-    match = raw.match(/\A([^DXdx]*)([DXdx]\d*)(.*)\z/)
-    return "\\d+" unless match
+  def numeric_regex_fragment(spec, default_code, type: nil, allow_wider: false)
+    parsed = parse_numeric_spec(spec, default_code)
+    return "\\d+" unless parsed
 
-    prefix, code, suffix = match.captures
-    digits = code[1..].to_i
-    char_class = code.downcase.start_with?("x") ? "[0-9a-fA-F]" : "\\d"
+    digits = parsed[:digits]
+    char_class = parsed[:base] == 16 ? "[0-9a-fA-F]" : "\\d"
+    max_natural = MAX_DIGITS_BY_TYPE.dig(type, parsed[:base])
+
     quantifier = if digits.positive?
-                   allow_wider ? "{#{digits},}" : "{#{digits}}"
-                 else
+                   if allow_wider
+                     "{#{digits},}"
+                   elsif max_natural && max_natural > digits
+                     "{#{digits},#{max_natural}}"
+                   else
+                     "{#{digits}}"
+                   end
+    else
                    "+"
-                 end
+    end
 
-    "#{Regexp.escape(prefix)}#{char_class}#{quantifier}#{Regexp.escape(suffix)}"
+    "#{Regexp.escape(parsed[:prefix])}#{char_class}#{quantifier}#{Regexp.escape(parsed[:suffix])}"
   end
 
   def datetime_regex_fragment(spec)

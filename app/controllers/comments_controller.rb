@@ -6,9 +6,10 @@ class CommentsController < ApplicationController
 
   def index
     @comments = @inventory.comments.includes(:user)
-    latest_marker = [@comments.size, @comments.maximum(:updated_at), I18n.locale]
+    latest_marker = [ @comments.size, @comments.maximum(:updated_at), I18n.locale ]
 
     if stale?(etag: latest_marker, public: false)
+      response.set_header("X-Comments-Count", @comments.size.to_s)
       render partial: "comments/list", locals: { comments: @comments }, layout: false
     end
   end
@@ -18,10 +19,13 @@ class CommentsController < ApplicationController
     if @comment.save
       if request.xhr? || request.format.json?
         @comments = @inventory.comments.includes(:user)
+        response.set_header("X-Comments-Count", @comments.size.to_s)
         render partial: "comments/list", locals: { comments: @comments }, layout: false, status: :created
       else
         redirect_to inventory_path(@inventory, tab: "discussion")
       end
+    elsif request.xhr? || request.format.json?
+      render json: { error: @comment.errors.full_messages.to_sentence }, status: :unprocessable_entity
     else
       redirect_to inventory_path(@inventory, tab: "discussion"), alert: @comment.errors.full_messages.to_sentence
     end

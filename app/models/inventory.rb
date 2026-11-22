@@ -28,6 +28,7 @@ class Inventory < ApplicationRecord
             format: { with: /\Ahttps?:\/\/\S+\z/i, message: "must be a valid HTTP/HTTPS URL" }
 
   before_create :set_default_custom_id_config
+  after_save :persist_pending_tags
 
   scope :latest_first, -> { includes(:category, :creator, :tags).order(created_at: :desc) }
   scope :top_popular, ->(limit_count = 5) { includes(:category, :creator).order(items_count: :desc, created_at: :desc).limit(limit_count) }
@@ -59,27 +60,19 @@ class Inventory < ApplicationRecord
   end
 
   def tag_list
+    return @pending_tag_names.join(", ") if defined?(@pending_tag_names) && !@pending_tag_names.nil?
+
     tags.map(&:name).join(", ")
   end
 
-  # Section 14: Bulk tag assignment without executing SQL queries inside a loop
+  # Deferred bulk tag assignment so failed validations or lock conflicts never mutate DB tags
   def tag_list=(raw_string)
     names = raw_string.to_s.split(",").map { |n| n.strip.downcase }.reject(&:blank?).uniq
-    if names.empty?
-      self.tags = []
-      return
-    end
+    @pending_tag_names = names
 
-    existing_names = Tag.where(name: names).pluck(:name)
-    missing_names  = names - existing_names
-    if missing_names.any?
-      now = Time.current
-      Tag.insert_all(
-        missing_names.map { |name| { name: name, inventories_count: 0, created_at: now, updated_at: now } }
-      )
+    if persisted? && names.sort != tags.pluck(:name).sort
+      updated_at_will_change!
     end
-
-    self.tags = Tag.where(name: names).to_a
   end
 
   def all_custom_field_slots
@@ -102,14 +95,13 @@ class Inventory < ApplicationRecord
         }
       end
     end
-    slots.sort_by { |s| [s[:state] ? 0 : 1, s[:position], s[:index]] }
+    slots.sort_by { |s| [ s[:state] ? 0 : 1, s[:position], s[:index] ] }
   end
 
   def active_custom_fields
     all_custom_field_slots.select { |slot| slot[:state] && slot[:name].present? }
   end
 
-  # Section 7: Strictly respect the boolean flag indicating whether the field is displayed in the table view
   def table_custom_fields
     active_custom_fields.select { |slot| slot[:show_in_table] }
   end
@@ -137,13 +129,12 @@ class Inventory < ApplicationRecord
     end
   end
 
-  # Section 4, 9 & 14: Single-query SQL aggregation for numeric fields
   def statistics
     numeric_fields = active_custom_fields.select { |f| f[:type] == "int" }
     numeric_stats = if numeric_fields.any?
                       select_exprs = numeric_fields.flat_map do |f|
                         col = self.class.connection.quote_column_name(f[:value_column])
-                        ["AVG(#{col})", "MIN(#{col})", "MAX(#{col})"]
+                        [ "AVG(#{col})", "MIN(#{col})", "MAX(#{col})" ]
                       end
                       row = items.pick(*select_exprs.map { |e| Arel.sql(e) })
                       row = Array(row)
@@ -156,13 +147,13 @@ class Inventory < ApplicationRecord
                           max:  max_val || 0
                         }
                       end
-                    else
+    else
                       []
-                    end
+    end
 
     string_stats = active_custom_fields.select { |f| f[:type] == "string" }.map do |field|
       col = field[:value_column]
-      top_vals = items.where.not(col => [nil, ""])
+      top_vals = items.where.not(col => [ nil, "" ])
                       .group(col)
                       .order(Arel.sql("COUNT(*) DESC"))
                       .limit(5)
@@ -183,6 +174,30 @@ class Inventory < ApplicationRecord
   end
 
   private
+
+  def persist_pending_tags
+    return unless defined?(@pending_tag_names) && !@pending_tag_names.nil?
+
+    names = @pending_tag_names
+    @pending_tag_names = nil
+
+    if names.empty?
+      self.tags = []
+      return
+    end
+
+    existing_names = Tag.where(name: names).pluck(:name)
+    missing_names  = names - existing_names
+    if missing_names.any?
+      now = Time.current
+      Tag.insert_all(
+        missing_names.map { |name| { name: name, inventories_count: 0, created_at: now, updated_at: now } },
+        unique_by: :name
+      )
+    end
+
+    self.tags = Tag.where(name: names).to_a
+  end
 
   def set_default_custom_id_config
     return if custom_id_config.present?

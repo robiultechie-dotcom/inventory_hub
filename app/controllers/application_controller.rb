@@ -4,17 +4,17 @@ class ApplicationController < ActionController::Base
   allow_browser versions: :modern
 
   before_action :set_locale
-  helper_method :current_user, :current_theme, :all_categories, :available_oauth_users
+  helper_method :current_user, :current_theme, :all_categories, :server_upload_enabled?
 
   private
 
   def set_locale
-    requested = params[:locale] || cookies[:locale] || session[:locale]
+    requested = params[:locale] || current_user&.locale || cookies[:locale] || session[:locale]
     I18n.locale = %w[en es].include?(requested.to_s) ? requested.to_sym : I18n.default_locale
   end
 
   def current_theme
-    theme = cookies[:theme] || session[:theme]
+    theme = current_user&.theme || cookies[:theme] || session[:theme]
     %w[light dark].include?(theme.to_s) ? theme.to_s : "light"
   end
 
@@ -33,12 +33,19 @@ class ApplicationController < ActionController::Base
     @all_categories ||= Category.order(:name).to_a
   end
 
-  def available_oauth_users
-    @available_oauth_users ||= User.where(blocked: false).order(:id).limit(4).to_a
+  def server_upload_enabled?
+    ENV["CLOUDINARY_URL"].present? ||
+      (ENV["CLOUDINARY_CLOUD_NAME"].present? && ENV["CLOUDINARY_UPLOAD_PRESET"].present?) ||
+      ENV["FREEIMAGE_API_KEY"].present?
   end
 
   def authenticate_user!
     return if current_user.present?
+
+    if request.xhr?
+      render json: { error: t("flashes.auth_required", default: "Please sign in.") }, status: :unauthorized
+      return
+    end
 
     respond_to do |format|
       format.json { render json: { error: t("flashes.auth_required", default: "Please sign in.") }, status: :unauthorized }

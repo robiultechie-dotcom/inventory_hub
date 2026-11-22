@@ -14,6 +14,25 @@ export default class extends Controller {
   ]
 
   connect() {
+    this.handleTableFiltered = () => this.syncFilteredRows()
+    this.element.addEventListener("table:filtered", this.handleTableFiltered)
+    this.syncState()
+  }
+
+  disconnect() {
+    if (this.handleTableFiltered) {
+      this.element.removeEventListener("table:filtered", this.handleTableFiltered)
+    }
+  }
+
+  syncFilteredRows() {
+    this.rowCheckboxTargets.forEach((cb) => {
+      const row = cb.closest("tr")
+      if (row?.classList.contains("d-none") && cb.checked) {
+        cb.checked = false
+        row.classList.remove("row-selected")
+      }
+    })
     this.syncState()
   }
 
@@ -39,16 +58,23 @@ export default class extends Controller {
     if (url) window.location.href = url
   }
 
-  async likeSelected() {
+  async likeSelected(event) {
     const selected = this.checkedBoxes()
-    if (selected.length === 0) return
+    if (selected.length === 0 || !window.toggleItemLike) return
 
-    for (const cb of selected) {
-      const row = cb.closest("tr")
-      const likeUrl = row?.dataset.likeUrl
-      if (likeUrl && window.toggleItemLike) {
-        await window.toggleItemLike(likeUrl)
+    const triggerBtn = event?.currentTarget
+    if (triggerBtn) triggerBtn.disabled = true
+
+    try {
+      for (const cb of selected) {
+        const row = cb.closest("tr")
+        const likeUrl = row?.dataset.likeUrl
+        if (likeUrl) {
+          await window.toggleItemLike(likeUrl, row)
+        }
       }
+    } finally {
+      this.syncState()
     }
   }
 

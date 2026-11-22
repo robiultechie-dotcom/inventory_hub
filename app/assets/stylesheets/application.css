@@ -171,7 +171,7 @@ html[data-bs-theme="dark"] .navbar-glass {
   border-color: var(--bs-primary) !important;
 }
 
-/* Fix Bug 2.2: Command Search Wrapper without overlapping TomSelect caret */
+/* Command Search Wrapper */
 .search-command-wrapper {
   position: relative;
 }
@@ -203,40 +203,11 @@ html[data-bs-theme="dark"] .navbar-glass {
   border: 1px solid var(--saas-border);
   color: var(--bs-secondary-color);
   z-index: 4;
+  transition: opacity 0.15s ease;
 }
 
-/* Fix Bug 2.1 & 2.4: Animated Appearing Context Action for Likes (No static row button) */
-.like-reaction-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.24rem 0.62rem;
-  border-radius: 999px;
-  font-family: var(--bs-font-monospace);
-  font-size: 0.78rem;
-  font-weight: 600;
-  border: 1px solid transparent;
-  background-color: transparent;
-  color: var(--bs-secondary-color);
-  user-select: none;
-  transition: all 0.18s ease;
-}
-
-.like-reaction-pill.is-liked {
-  color: #e11d48;
-}
-
-.table-enterprise tbody tr:hover .like-reaction-pill[data-interactive="true"] {
-  cursor: pointer;
-  border-color: var(--saas-input-border);
-  background-color: var(--saas-surface-subtle);
-}
-
-.table-enterprise tbody tr:hover .like-reaction-pill[data-interactive="true"]:hover {
-  border-color: #f43f5e;
-  color: #e11d48;
-  background-color: rgba(244, 63, 94, 0.1);
-  transform: translateY(-1px);
+.search-command-wrapper.is-active .search-kbd-hint {
+  opacity: 0;
 }
 
 @keyframes likePop {
@@ -284,7 +255,7 @@ html[data-bs-theme="dark"] .navbar-glass {
   background-color: rgba(239, 68, 68, 0.08) !important;
 }
 
-/* Enterprise Tables & Context Toolbars (Section 2) */
+/* Enterprise Tables & Context Toolbars */
 .table > thead,
 .table > thead.table-light {
   --bs-table-bg: var(--saas-surface-subtle);
@@ -311,6 +282,12 @@ html[data-bs-theme="dark"] .navbar-glass {
 
 .table-enterprise tbody tr:last-child td {
   border-bottom: 0;
+}
+
+/* Fix G1: Prevent horizontal scrollbar & clipped ITEMS column in Top 5 table */
+.table-top-popular {
+  table-layout: fixed;
+  width: 100%;
 }
 
 .context-toolbar {
@@ -461,8 +438,37 @@ code,
   color: var(--bs-btn-hover-color) !important;
 }
 
+/* Fix G10: Keep table markdown excerpts compact & bounded */
 .markdown-excerpt p {
   margin-bottom: 0;
+}
+
+.markdown-excerpt-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: 3.1em;
+}
+
+.markdown-excerpt-clamped h1,
+.markdown-excerpt-clamped h2,
+.markdown-excerpt-clamped h3,
+.markdown-excerpt-clamped h4,
+.markdown-excerpt-clamped h5,
+.markdown-excerpt-clamped h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0;
+  display: inline;
+}
+
+.markdown-excerpt-clamped ul,
+.markdown-excerpt-clamped ol,
+.markdown-excerpt-clamped blockquote,
+.markdown-excerpt-clamped pre {
+  margin: 0;
+  padding-left: 1rem;
 }
 
 .tag-pill-cloud {
@@ -490,6 +496,7 @@ code,
 .tag-weight-2 { font-size: 0.78rem; font-weight: 500; }
 .tag-weight-1 { font-size: 0.74rem; font-weight: 400; }
 
+/* Fix G2: Complete Dark Mode overrides for TomSelect & EasyMDE */
 [data-bs-theme="dark"] .ts-control,
 [data-bs-theme="dark"] .ts-dropdown,
 [data-bs-theme="dark"] .EasyMDEContainer .CodeMirror,
@@ -507,4 +514,37 @@ code,
 
 [data-bs-theme="dark"] .ts-dropdown .active {
   background-color: rgba(var(--bs-primary-rgb), 0.25) !important;
+}
+
+[data-bs-theme="dark"] .ts-dropdown .optgroup-header {
+  background-color: var(--saas-surface-elevated) !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid var(--saas-border) !important;
+}
+
+[data-bs-theme="dark"] .ts-control .item {
+  background-color: rgba(var(--bs-primary-rgb), 0.22) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.45) !important;
+}
+
+[data-bs-theme="dark"] .EasyMDEContainer .CodeMirror-cursor {
+  border-left: 1.5px solid #f8fafc !important;
+}
+
+[data-bs-theme="dark"] .EasyMDEContainer .CodeMirror-selected {
+  background-color: rgba(var(--bs-primary-rgb), 0.3) !important;
+}
+
+[data-bs-theme="dark"] .editor-toolbar button:hover,
+[data-bs-theme="dark"] .editor-toolbar button.active {
+  background-color: rgba(var(--bs-primary-rgb), 0.2) !important;
+  border-color: var(--saas-border) !important;
+}
+
+[data-bs-theme="dark"] .editor-preview,
+[data-bs-theme="dark"] .editor-preview-side {
+  background-color: var(--saas-surface-elevated) !important;
+  color: var(--bs-body-color) !important;
+  border-color: var(--saas-border) !important;
 }

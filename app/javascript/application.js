@@ -5,6 +5,54 @@ if (window.Dropzone) {
   window.Dropzone.autoDiscover = false
 }
 
+// Fix F2: Implement global toggleItemLike used by TableSelectionController toolbar
+window.toggleItemLike = async function(likeUrl, rowElement = null) {
+  if (!likeUrl) return null
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+  const res = await fetch(likeUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "X-CSRF-Token": csrfToken,
+      "X-Requested-With": "XMLHttpRequest"
+    }
+  })
+
+  if (!res.ok) return null
+  const data = await res.json().catch(() => null)
+  if (!data) return null
+
+  const row = rowElement || document.querySelector(`tr[data-like-url="${CSS.escape(likeUrl)}"]`)
+  if (row) {
+    row.dataset.likes = String(data.likes_count)
+
+    const countEl = row.querySelector("[data-like-count]")
+    if (countEl) countEl.textContent = String(data.likes_count)
+
+    const badgeEl = row.querySelector("[data-like-badge]")
+    if (badgeEl) {
+      badgeEl.classList.toggle("bg-danger-subtle", Boolean(data.liked))
+      badgeEl.classList.toggle("text-danger", Boolean(data.liked))
+      badgeEl.classList.toggle("border-danger-subtle", Boolean(data.liked))
+      badgeEl.classList.toggle("bg-body-tertiary", !data.liked)
+      badgeEl.classList.toggle("text-secondary", !data.liked)
+      badgeEl.classList.remove("like-pop-anim")
+      void badgeEl.offsetWidth
+      badgeEl.classList.add("like-pop-anim")
+    }
+
+    const iconEl = row.querySelector("[data-like-icon]")
+    if (iconEl) {
+      iconEl.classList.toggle("bi-heart-fill", Boolean(data.liked))
+      iconEl.classList.toggle("bi-heart", !data.liked)
+    }
+  }
+
+  return data
+}
+
+// Fix F11: Direct Cloudinary upload OR authenticated server-side /uploads fallback
 window.mountCloudDropzone = function(element, options = {}) {
   if (!element || !window.Dropzone) return null
   if (element.dropzone) element.dropzone.destroy()
@@ -29,26 +77,36 @@ window.mountCloudDropzone = function(element, options = {}) {
 
   const cloudName = document.querySelector('meta[name="cloudinary-cloud-name"]')?.content?.trim()
   const uploadPreset = document.querySelector('meta[name="cloudinary-upload-preset"]')?.content?.trim()
+  const serverUploadEnabled = document.querySelector('meta[name="server-upload-enabled"]')?.content === "true"
+  const useDirectCloudinary = Boolean(cloudName && uploadPreset)
 
-  if (!cloudName || !uploadPreset) {
+  if (!useDirectCloudinary && !serverUploadEnabled) {
     element.innerHTML = unconfiguredMessage
     return null
   }
 
   element.innerHTML = ""
-  const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`
+  const endpoint = useDirectCloudinary
+    ? `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`
+    : "/uploads"
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+  const headers = useDirectCloudinary ? {} : { "X-CSRF-Token": csrfToken, "X-Requested-With": "XMLHttpRequest" }
 
   return new window.Dropzone(element, {
     url: endpoint,
+    headers,
     paramName: "file",
     maxFiles: 1,
     maxFilesize: 5,
     acceptedFiles: "image/jpeg,image/png,image/webp,image/gif",
     dictDefaultMessage: dropMessage,
     init() {
-      this.on("sending", (_file, _xhr, formData) => {
-        formData.append("upload_preset", uploadPreset)
-      })
+      if (useDirectCloudinary) {
+        this.on("sending", (_file, _xhr, formData) => {
+          formData.append("upload_preset", uploadPreset)
+        })
+      }
 
       this.on("success", (_file, response) => {
         const uploadedUrl = response?.secure_url || response?.url
@@ -136,21 +194,38 @@ function initNewInventoryModal() {
     }
 
     const descInput = document.getElementById("modalDescInput")
-    if (descInput && window.EasyMDE && !descInput.dataset.mdeInitialized) {
-      descInput.dataset.mdeInitialized = "true"
-      const mde = new window.EasyMDE({
-        element: descInput,
-        spellChecker: false,
-        status: false,
-        minHeight: "100px",
-        toolbar: ["bold", "italic", "heading", "|", "code", "quote", "unordered-list", "ordered-list", "|", "link", "preview"]
-      })
-      mde.codemirror.on("change", () => {
-        descInput.value = mde.value()
-      })
+    if (descInput && window.EasyMDE) {
+      if (!descInput._mdeInstance) {
+        const mde = new window.EasyMDE({
+          element: descInput,
+          spellChecker: false,
+          status: false,
+          minHeight: "100px",
+          toolbar: ["bold", "italic", "heading", "|", "code", "quote", "unordered-list", "ordered-list", "|", "link", "preview"]
+        })
+        mde.codemirror.on("change", () => {
+          descInput.value = mde.value()
+        })
+        descInput._mdeInstance = mde
+      }
+      // Fix G3: Refresh CodeMirror layout whenever modal opens
+      setTimeout(() => descInput._mdeInstance?.codemirror?.refresh(), 40)
     }
   })
 }
+
+// Fix G3: Clean up open Bootstrap modals & backdrops before Turbo caches a page
+document.addEventListener("turbo:before-cache", () => {
+  document.querySelectorAll(".modal.show").forEach((modalEl) => {
+    window.bootstrap?.Modal?.getInstance(modalEl)?.hide()
+    modalEl.classList.remove("show")
+    modalEl.style.display = "none"
+  })
+  document.querySelectorAll(".modal-backdrop").forEach((el) => el.remove())
+  document.body.classList.remove("modal-open")
+  document.body.style.removeProperty("overflow")
+  document.body.style.removeProperty("padding-right")
+})
 
 document.addEventListener("turbo:load", () => {
   initAuthModalControls()

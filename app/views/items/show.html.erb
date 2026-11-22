@@ -71,10 +71,12 @@
         <% val = @item.public_send(field[:value_column]) %>
         <div class="<%= field[:type] == 'text' || field[:type] == 'link' ? 'col-12' : 'col-md-6' %>">
           <div class="p-3.5 rounded-3 border bg-body-tertiary h-100">
-            <div class="d-flex justify-content-between align-items-center mb-1.5">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-1.5">
               <span class="modern-label text-secondary mb-0"><%= field[:name] %></span>
               <% if field[:description].present? %>
-                <span class="text-secondary small"><i class="bi bi-info-circle me-1"></i><%= field[:description] %></span>
+                <span class="text-secondary small" data-bs-toggle="tooltip" title="<%= field[:description] %>">
+                  <i class="bi bi-info-circle"></i>
+                </span>
               <% end %>
             </div>
 
@@ -90,17 +92,22 @@
               </div>
             <% when "link" %>
               <% if val.present? %>
+                <% url_str = val.to_s %>
                 <div class="mt-2">
-                  <%= link_to val.to_s, val.to_s, target: "_blank", rel: "noopener noreferrer", class: "btn btn-sm btn-outline-primary rounded-3 mb-2 font-mono" do %>
-                    <i class="bi bi-box-arrow-up-right me-1"></i><%= truncate(val.to_s, length: 60) %>
+                  <%= link_to url_str, target: "_blank", rel: "noopener noreferrer", class: "btn btn-sm btn-outline-primary rounded-3 mb-2 font-mono" do %>
+                    <i class="bi bi-box-arrow-up-right me-1"></i><%= truncate(url_str, length: 60) %>
                   <% end %>
-                  <% if val.to_s.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || val.to_s.include?("images.unsplash.com") || val.to_s.include?("iili.io") %>
+                  <% if url_str.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || url_str.include?("images.unsplash.com") || url_str.include?("res.cloudinary.com") || url_str.include?("iili.io") %>
                     <div class="mt-2">
-                      <img src="<%= val %>" alt="<%= field[:name] %>" class="rounded-3 border shadow-sm object-fit-cover" style="max-height: 260px; max-width: 100%;">
+                      <img src="<%= url_str %>"
+                           alt="<%= field[:name] %>"
+                           class="rounded-3 border shadow-sm object-fit-cover"
+                           style="max-height: 260px; max-width: 100%;"
+                           onerror="this.closest('div').classList.add('d-none');">
                     </div>
-                  <% elsif val.to_s.match?(/\.pdf(\?.*)?$/i) %>
+                  <% elsif url_str.match?(/\.pdf(\?.*)?$/i) %>
                     <div class="mt-2 ratio ratio-16x9 rounded-3 overflow-hidden border">
-                      <iframe src="<%= val %>" title="<%= field[:name] %>" loading="lazy"></iframe>
+                      <iframe src="<%= url_str %>" title="<%= field[:name] %>" loading="lazy"></iframe>
                     </div>
                   <% end %>
                 </div>

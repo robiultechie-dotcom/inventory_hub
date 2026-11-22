@@ -28,15 +28,15 @@ class InventoriesController < ApplicationController
 
     items_scope        = @inventory.items.includes(:created_by).order(created_at: :desc)
     @total_items_count = @inventory.items_count
-    @total_pages       = [(@total_items_count.to_f / ITEMS_PER_PAGE).ceil, 1].max
+    @total_pages       = [ (@total_items_count.to_f / ITEMS_PER_PAGE).ceil, 1 ].max
     @page              = params[:page].to_i.clamp(1, @total_pages)
     @items             = items_scope.offset((@page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).to_a
 
     @liked_item_ids = if current_user && @items.any?
                         current_user.likes.where(item_id: @items.map(&:id)).pluck(:item_id).to_set
-                      else
+    else
                         Set.new
-                      end
+    end
 
     @comments = @inventory.comments.includes(:user)
 
@@ -57,14 +57,15 @@ class InventoriesController < ApplicationController
   end
 
   def update
+    target_tab = params[:tab].presence || "settings"
     verify_lock_version!(params.dig(:inventory, :lock_version))
     @inventory.assign_attributes(inventory_params)
     @inventory.lock_version = params.dig(:inventory, :lock_version).to_i if enforce_lock?(params.dig(:inventory, :lock_version))
 
     if @inventory.save
-      render_save_success(t("flashes.inventory_updated"), "settings")
+      render_save_success(t("flashes.inventory_updated"), target_tab)
     else
-      render_save_error(@inventory.errors.full_messages.to_sentence, "settings")
+      render_save_error(@inventory.errors.full_messages.to_sentence, target_tab)
     end
   rescue ActiveRecord::StaleObjectError
     render_conflict_response
@@ -75,7 +76,7 @@ class InventoriesController < ApplicationController
 
     elements = if params[:clear_all] == "1"
                  []
-               else
+    else
                  Array(params[:elements]).filter_map do |el|
                    type = el[:type].to_s
                    next unless CustomIdGenerator::SUPPORTED_ELEMENTS.key?(type)
@@ -87,7 +88,7 @@ class InventoriesController < ApplicationController
                      "format" => type == "fixed" ? "" : spec
                    }
                  end.first(10)
-               end
+    end
 
     @inventory.lock_version = params[:lock_version].to_i if enforce_lock?(params[:lock_version])
     @inventory.custom_id_config = elements
@@ -152,9 +153,9 @@ class InventoriesController < ApplicationController
     inventories = ids.any? ? Inventory.where(id: ids).includes(:category, :creator) : Inventory.includes(:category, :creator).limit(50)
 
     csv_data = CSV.generate(headers: true) do |csv|
-      csv << ["ID", "Title", "Category", "Creator", "Public", "Items Count", "Created At"]
+      csv << [ "ID", "Title", "Category", "Creator", "Public", "Items Count", "Created At" ]
       inventories.each do |inv|
-        csv << [inv.id, inv.title, inv.category.name, inv.creator.name, inv.is_public, inv.items_count, inv.created_at.iso8601]
+        csv << [ inv.id, inv.title, inv.category.name, inv.creator.name, inv.is_public, inv.items_count, inv.created_at.iso8601 ]
       end
     end
 
@@ -166,10 +167,10 @@ class InventoriesController < ApplicationController
     items = @inventory.items.includes(:created_by).order(created_at: :asc)
 
     csv_data = CSV.generate(headers: true) do |csv|
-      headers = ["Custom ID", "Creator", "Created At", "Likes"] + active_fields.map { |f| f[:name] }
+      headers = [ "Custom ID", "Creator", "Created At", "Likes" ] + active_fields.map { |f| f[:name] }
       csv << headers
       items.each do |item|
-        row = [item.custom_id, item.created_by.name, item.created_at.iso8601, item.likes_count]
+        row = [ item.custom_id, item.created_by.name, item.created_at.iso8601, item.likes_count ]
         row.concat(active_fields.map { |f| item.public_send(f[:value_column]) })
         csv << row
       end
@@ -214,11 +215,19 @@ class InventoriesController < ApplicationController
     respond_to do |format|
       format.json do
         render json: {
-          status:       "saved",
-          lock_version: @inventory.lock_version,
-          saved_at:     Time.current.strftime("%H:%M:%S"),
-          id_preview:   generator.generate(preview: true),
-          next_seq:     generator.next_sequence_number
+          status:              "saved",
+          lock_version:        @inventory.lock_version,
+          saved_at:            Time.current.strftime("%H:%M:%S"),
+          id_preview:          generator.generate(preview: true),
+          next_seq:            generator.next_sequence_number,
+          title:               @inventory.title,
+          category_name:       helpers.localized_category_name(@inventory.category),
+          category_icon:       helpers.category_icon_class(@inventory.category.name),
+          is_public:           @inventory.is_public?,
+          visibility_label:    @inventory.is_public? ? t("common.public") : t("common.restricted"),
+          description_html:    helpers.render_markdown(@inventory.description).to_s,
+          active_fields_count: @inventory.active_custom_fields.size,
+          tags:                @inventory.tags.map { |tag| { name: tag.name, url: search_path(tag: tag.name) } }
         }
       end
       format.html { redirect_to inventory_path(@inventory, tab: tab), notice: notice_msg }

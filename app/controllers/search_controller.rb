@@ -13,14 +13,14 @@ class SearchController < ApplicationController
                               .includes(:category, :creator, :tags)
                               .order(created_at: :desc)
                               .distinct
-                   elsif @query.present?
+    elsif @query.present?
                      Inventory.full_text_search(@query)
                               .includes(:category, :creator, :tags)
                               .order(created_at: :desc)
                               .limit(50)
-                   else
+    else
                      Inventory.none
-                   end
+    end
 
     @items = if @query.present?
                Item.full_text_search(@query)
@@ -28,36 +28,34 @@ class SearchController < ApplicationController
                    .order(created_at: :desc)
                    .limit(50)
                    .to_a
-             else
+    else
                []
-             end
+    end
 
     @liked_item_ids = if current_user && @items.any?
                         current_user.likes.where(item_id: @items.map(&:id)).pluck(:item_id).to_set
-                      else
+    else
                         Set.new
-                      end
+    end
   end
 
   def suggestions
     q = params[:q].to_s.strip
     inventories = if q.present?
                     Inventory.full_text_search(q).includes(:category, :creator).limit(5)
-                  else
+    else
                     Inventory.includes(:category, :creator).order(created_at: :desc).limit(5)
-                  end
+    end
 
     items = if q.present?
               Item.full_text_search(q).includes(:inventory).limit(5)
-            else
+    else
               Item.none
-            end
+    end
 
-    tags = if q.present?
-             Tag.where("name ILIKE ?", "#{Tag.sanitize_sql_like(q.downcase)}%").order(inventories_count: :desc).limit(5)
-           else
-             Tag.where("inventories_count > 0").order(inventories_count: :desc).limit(5)
-           end
+    tags = Tag.popular
+    tags = tags.where("name ILIKE ?", "#{Tag.sanitize_sql_like(q.downcase)}%") if q.present?
+    tags = tags.limit(5)
 
     render json: {
       inventories: inventories.map do |inv|

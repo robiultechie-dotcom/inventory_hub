@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="cloudinary-cloud-name" content="<%= ENV['CLOUDINARY_CLOUD_NAME'] %>">
     <meta name="cloudinary-upload-preset" content="<%= ENV['CLOUDINARY_UPLOAD_PRESET'] %>">
+    <meta name="server-upload-enabled" content="<%= server_upload_enabled? %>">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
@@ -40,7 +41,7 @@
 
         <div class="collapse navbar-collapse gap-2 align-items-center" id="mainNavbar">
           <% if current_user %>
-            <ul class="navbar-nav me-2 gap-1.5 flex-row">
+            <ul class="navbar-nav me-lg-2 gap-1.5 flex-row flex-wrap mt-2 mt-lg-0">
               <li class="nav-item">
                 <%= link_to user_path(current_user),
                       class: "btn btn-sm #{request.path == user_path(current_user) ? 'btn-primary shadow-sm' : 'btn-outline-secondary'} fw-semibold text-nowrap rounded-pill px-3" do %>
@@ -59,7 +60,7 @@
           <% end %>
 
           <div class="mx-lg-auto my-2 my-lg-0 flex-grow-1 search-command-wrapper"
-               style="max-width: 440px;"
+               style="max-width: 420px; min-width: 190px;"
                data-controller="global-search"
                data-global-search-url-value="<%= search_suggestions_path %>">
             <select id="globalSearchInput"
@@ -69,7 +70,7 @@
             <span class="search-kbd-hint d-none d-md-inline">/</span>
           </div>
 
-          <div class="d-flex align-items-center gap-2 ms-lg-auto flex-nowrap">
+          <div class="d-flex align-items-center gap-2 ms-lg-auto flex-wrap flex-lg-nowrap pb-2 pb-lg-0">
             <div class="btn-group btn-group-sm" role="group" aria-label="Language">
               <%= button_to "EN", update_locale_path(locale: :en), method: :post, form: { data: { turbo: false } },
                     class: "btn #{I18n.locale == :en ? 'btn-primary fw-bold' : 'btn-outline-secondary'}" %>
@@ -81,9 +82,9 @@
             <%= button_to update_theme_path(theme: target_theme), method: :post, form: { data: { turbo: false } },
                   class: "btn btn-sm btn-outline-secondary text-nowrap rounded-pill px-2.5" do %>
               <% if current_theme == "dark" %>
-                <i class="bi bi-sun-fill text-warning me-1"></i><span class="d-none d-sm-inline"><%= t('nav.theme_light') %></span>
+                <i class="bi bi-sun-fill text-warning me-1"></i><span class="d-none d-xl-inline"><%= t('nav.theme_light') %></span>
               <% else %>
-                <i class="bi bi-moon-stars-fill text-primary me-1"></i><span class="d-none d-sm-inline"><%= t('nav.theme_dark') %></span>
+                <i class="bi bi-moon-stars-fill text-primary me-1"></i><span class="d-none d-xl-inline"><%= t('nav.theme_dark') %></span>
               <% end %>
             <% end %>
 
@@ -91,9 +92,9 @@
               <div class="dropdown">
                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-inline-flex align-items-center gap-2 rounded-pill ps-1.5 pe-3 py-1" type="button" data-bs-toggle="dropdown">
                   <span class="avatar-circle"><%= user_initials(current_user.name) %></span>
-                  <span class="fw-semibold text-truncate" style="max-width: 115px;"><%= current_user.name %></span>
+                  <span class="fw-semibold text-truncate" style="max-width: 105px;"><%= current_user.name %></span>
                   <% if current_user.admin? %>
-                    <span class="badge text-bg-danger rounded-pill"><%= t('admin.role_admin') %></span>
+                    <span class="badge text-bg-danger rounded-pill d-none d-xl-inline"><%= t('admin.role_admin') %></span>
                   <% end %>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border rounded-4 p-2 mt-2" style="min-width: 230px;">
@@ -224,7 +225,7 @@
             </div>
 
             <div id="authSignInView">
-              <%= form_with url: sign_in_path, method: :post, local: true do %>
+              <%= form_with url: sign_in_path, method: :post, data: { turbo: false } do %>
                 <%= hidden_field_tag :auth_mode, "email_login" %>
                 <div class="mb-3">
                   <label class="form-label modern-label"><%= t('auth.email') %></label>
@@ -251,7 +252,7 @@
             </div>
 
             <div id="authRegisterView" class="d-none">
-              <%= form_with url: sign_in_path, method: :post, local: true do %>
+              <%= form_with url: sign_in_path, method: :post, data: { turbo: false } do %>
                 <%= hidden_field_tag :auth_mode, "email_register" %>
                 <div class="mb-2.5">
                   <label class="form-label modern-label"><%= t('auth.full_name') %></label>
@@ -290,7 +291,7 @@
       <div class="modal fade" id="newInventoryModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 650px;">
           <div class="modal-content modal-modern">
-            <%= form_with model: Inventory.new, url: inventories_path, method: :post, id: "newInventoryForm" do |f| %>
+            <%= form_with model: Inventory.new, url: inventories_path, method: :post, id: "newInventoryForm", data: { turbo: false } do |f| %>
               <%= f.hidden_field :image_url, id: "modalInventoryImageUrl" %>
 
               <div class="modal-header border-bottom px-4 py-3">

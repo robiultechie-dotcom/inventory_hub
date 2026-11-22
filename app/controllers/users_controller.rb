@@ -16,12 +16,12 @@ class UsersController < ApplicationController
 
     writable_base = if @user.admin?
                       Inventory.where.not(creator_id: @user.id)
-                    else
+    else
                       Inventory.left_outer_joins(:inventory_accesses)
                                .where.not(creator_id: @user.id)
                                .where("inventories.is_public = TRUE OR inventory_accesses.user_id = ?", @user.id)
                                .distinct
-                    end
+    end
 
     @writable_inventories = filter_and_sort(
       writable_base.includes(:category, :creator, :tags),
