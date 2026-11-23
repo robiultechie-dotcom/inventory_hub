@@ -72,12 +72,12 @@ class CustomField < ApplicationRecord
   def tuning_hints
     hints = []
     if text_based?
-      hints << "Min len: #{min_length}" if min_length.present?
-      hints << "Max len: #{max_length}" if max_length.present?
-      hints << "Pattern: /#{regex_pattern}/" if regex_pattern.present?
+      hints << I18n.t("fields.hint_min_len", value: min_length) if min_length.present?
+      hints << I18n.t("fields.hint_max_len", value: max_length) if max_length.present?
+      hints << I18n.t("fields.hint_pattern", value: regex_pattern) if regex_pattern.present?
     elsif numeric?
-      hints << "Min: #{format_bound(min_value)}" if min_value.present?
-      hints << "Max: #{format_bound(max_value)}" if max_value.present?
+      hints << I18n.t("fields.hint_min", value: format_bound(min_value)) if min_value.present?
+      hints << I18n.t("fields.hint_max", value: format_bound(max_value)) if max_value.present?
     end
     hints
   end
@@ -120,14 +120,14 @@ class CustomField < ApplicationRecord
     return if min_length.nil? || max_length.nil?
     return if min_length <= max_length
 
-    errors.add(:min_length, I18n.t("fields.min_gt_max", default: "must be less than or equal to maximum"))
+    errors.add(:min_length, I18n.t("fields.min_gt_max"))
   end
 
   def validate_numeric_bounds
     return if min_value.nil? || max_value.nil?
     return if min_value <= max_value
 
-    errors.add(:min_value, I18n.t("fields.min_gt_max", default: "must be less than or equal to maximum"))
+    errors.add(:min_value, I18n.t("fields.min_gt_max"))
   end
 
   def validate_regex_syntax
@@ -135,7 +135,7 @@ class CustomField < ApplicationRecord
 
     Regexp.new(regex_pattern, timeout: REGEX_TIMEOUT_SEC)
   rescue RegexpError => e
-    errors.add(:regex_pattern, I18n.t("fields.invalid_regex", detail: e.message, default: "is not a valid regular expression"))
+    errors.add(:regex_pattern, I18n.t("fields.invalid_regex", detail: e.message))
   end
 
   def validate_select_options_list
@@ -143,11 +143,11 @@ class CustomField < ApplicationRecord
 
     opts = parsed_select_options
     if opts.empty?
-      errors.add(:select_options, I18n.t("fields.select_options_required", default: "must contain at least one option"))
+      errors.add(:select_options, I18n.t("fields.select_options_required"))
     elsif opts.size > MAX_SELECT_OPTIONS
-      errors.add(:select_options, I18n.t("fields.select_options_limit", max: MAX_SELECT_OPTIONS, default: "cannot exceed #{MAX_SELECT_OPTIONS} options"))
+      errors.add(:select_options, I18n.t("fields.select_options_limit", max: MAX_SELECT_OPTIONS))
     elsif opts.any? { |opt| opt.length > 100 }
-      errors.add(:select_options, I18n.t("fields.select_option_too_long", default: "each option must be 100 characters or fewer"))
+      errors.add(:select_options, I18n.t("fields.select_option_too_long"))
     end
   end
 

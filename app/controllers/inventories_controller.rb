@@ -1,19 +1,18 @@
 # frozen_string_literal: true
 
-require "csv"
 require "set"
 
 class InventoriesController < ApplicationController
   ITEMS_PER_PAGE = 50
 
-  before_action :authenticate_user!, except: %i[index show]
+  before_action :authenticate_user!, except: %i[ index show ]
   before_action :set_inventory, only: %i[
     show update destroy update_custom_id update_fields
-    grant_access revoke_access export_items_csv
+    grant_access revoke_access export_items_csv export_items_xlsx
   ]
   before_action :authorize_manager!, only: %i[
     update destroy update_custom_id update_fields
-    grant_access revoke_access export_items_csv
+    grant_access revoke_access export_items_csv export_items_xlsx
   ]
 
   def index
@@ -22,7 +21,7 @@ class InventoriesController < ApplicationController
 
   def show
     @active_tab           = params[:tab].presence || "items"
-    @active_tab           = "items" if %w[settings custom_id fields access stats export].include?(@active_tab) && !@inventory.manageable_by?(current_user)
+    @active_tab           = "items" if %w[ settings custom_id fields access stats export ].include?(@active_tab) && !@inventory.manageable_by?(current_user)
     @custom_fields        = @inventory.ordered_custom_fields
     @dynamic_table_fields = @inventory.dynamic_table_fields
     @table_fields         = @inventory.table_custom_fields
@@ -157,31 +156,23 @@ class InventoriesController < ApplicationController
     ids = Array(params[:ids]).map(&:to_i)
     inventories = ids.any? ? Inventory.where(id: ids).includes(:category, :creator) : Inventory.includes(:category, :creator).limit(50)
 
-    csv_data = CSV.generate(headers: true) do |csv|
-      csv << [ "ID", "Title", "Category", "Creator", "Public", "Items Count", "Created At" ]
-      inventories.each do |inv|
-        csv << [ inv.id, inv.title, inv.category.name, inv.creator.name, inv.is_public, inv.items_count, inv.created_at.iso8601 ]
-      end
-    end
-
-    send_data csv_data, filename: "inventories-#{Date.current}.csv", type: "text/csv; charset=utf-8"
+    send_data InventoryExporter.inventories_to_csv(inventories),
+              filename: "inventories-#{Date.current}.csv",
+              type:     InventoryExporter::CSV_MIME_TYPE
   end
 
   def export_items_csv
-    dynamic_fields = @inventory.ordered_custom_fields
-    items = @inventory.items.includes(:created_by, :item_field_values).order(created_at: :asc)
+    exporter = InventoryExporter.new(@inventory)
+    send_data exporter.to_csv,
+              filename: "inventory-#{@inventory.id}-items.csv",
+              type:     InventoryExporter::CSV_MIME_TYPE
+  end
 
-    csv_data = CSV.generate(headers: true) do |csv|
-      headers = [ "Custom ID", "Creator", "Created At", "Likes" ] + dynamic_fields.map(&:name)
-      csv << headers
-      items.each do |item|
-        row = [ item.custom_id, item.created_by.name, item.created_at.iso8601, item.likes_count ]
-        row.concat(dynamic_fields.map { |f| item.value_for(f) })
-        csv << row
-      end
-    end
-
-    send_data csv_data, filename: "inventory-#{@inventory.id}-items.csv", type: "text/csv; charset=utf-8"
+  def export_items_xlsx
+    exporter = InventoryExporter.new(@inventory)
+    send_data exporter.to_xlsx,
+              filename: "inventory-#{@inventory.id}-items.xlsx",
+              type:     InventoryExporter::EXCEL_MIME_TYPE
   end
 
   private

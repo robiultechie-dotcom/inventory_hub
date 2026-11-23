@@ -499,7 +499,7 @@
     <div class="card p-4">
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
         <div>
-          <h2 class="h6 fw-bold mb-1"><%= t('inventory.fields_title_unlimited', default: 'Custom Fields (Unlimited & Tunable)') %></h2>
+          <h2 class="h6 fw-bold mb-1"><%= t('inventory.fields_title_unlimited') %></h2>
           <p class="text-secondary small mb-0"><%= t('inventory.fields_subtitle') %></p>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -525,7 +525,7 @@
         <div data-inventory-workspace-target="fieldsList" class="d-flex flex-column gap-2.5 mb-3">
           <div data-inventory-workspace-target="fieldsEmptyState" class="text-center text-secondary small py-4 rounded-3 border bg-body-tertiary <%= 'd-none' if @custom_fields.any? %>">
             <i class="bi bi-input-cursor-text d-block fs-4 mb-1 opacity-75"></i>
-            <%= t('inventory.no_fields_yet', default: 'No custom fields yet. Select a field type above and click Add Field.') %>
+            <%= t('inventory.no_fields_yet') %>
           </div>
 
           <% @custom_fields.each_with_index do |field, idx| %>
@@ -585,32 +585,32 @@
               <div class="tuning-strip mt-2.5 pt-2.5 border-top <%= 'd-none' unless is_text || is_num || is_sel %>">
                 <div class="tuning-text-group row g-2 <%= 'd-none' unless is_text %>">
                   <div class="col-6 col-md-3">
-                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_length', default: 'Min length') %></label>
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_length') %></label>
                     <input type="number" min="0" max="10000" name="custom_fields[<%= idx %>][min_length]" value="<%= field.min_length %>" class="form-control form-control-sm font-mono" placeholder="0">
                   </div>
                   <div class="col-6 col-md-3">
-                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_length', default: 'Max length') %></label>
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_length') %></label>
                     <input type="number" min="1" max="10000" name="custom_fields[<%= idx %>][max_length]" value="<%= field.max_length %>" class="form-control form-control-sm font-mono" placeholder="255">
                   </div>
                   <div class="col-12 col-md-6">
-                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.regex_pattern', default: 'Regex validator (optional)') %></label>
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.regex_pattern') %></label>
                     <input type="text" name="custom_fields[<%= idx %>][regex_pattern]" value="<%= field.regex_pattern %>" class="form-control form-control-sm font-mono" placeholder="^[A-Z0-9-]+$">
                   </div>
                 </div>
 
                 <div class="tuning-numeric-group row g-2 <%= 'd-none' unless is_num %>">
                   <div class="col-6 col-md-4">
-                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_value', default: 'Min value') %></label>
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_value') %></label>
                     <input type="number" step="any" name="custom_fields[<%= idx %>][min_value]" value="<%= field.min_value.present? ? format_numeric_value(field.min_value) : '' %>" class="form-control form-control-sm font-mono" placeholder="0">
                   </div>
                   <div class="col-6 col-md-4">
-                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_value', default: 'Max value') %></label>
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_value') %></label>
                     <input type="number" step="any" name="custom_fields[<%= idx %>][max_value]" value="<%= field.max_value.present? ? format_numeric_value(field.max_value) : '' %>" class="form-control form-control-sm font-mono" placeholder="10000">
                   </div>
                 </div>
 
                 <div class="tuning-select-group <%= 'd-none' unless is_sel %>">
-                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.select_options_label', default: 'List options (comma or newline separated)') %></label>
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.select_options_label') %></label>
                   <input type="text"
                          name="custom_fields[<%= idx %>][select_options]"
                          value="<%= field.parsed_select_options.join(', ') %>"
@@ -676,32 +676,32 @@
             <div class="tuning-strip mt-2.5 pt-2.5 border-top d-none">
               <div class="tuning-text-group row g-2 d-none">
                 <div class="col-6 col-md-3">
-                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_length', default: 'Min length') %></label>
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_length') %></label>
                   <input type="number" min="0" max="10000" name="custom_fields[__IDX__][min_length]" value="" class="form-control form-control-sm font-mono" placeholder="0">
                 </div>
                 <div class="col-6 col-md-3">
-                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_length', default: 'Max length') %></label>
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_length') %></label>
                   <input type="number" min="1" max="10000" name="custom_fields[__IDX__][max_length]" value="" class="form-control form-control-sm font-mono" placeholder="255">
                 </div>
                 <div class="col-12 col-md-6">
-                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.regex_pattern', default: 'Regex validator (optional)') %></label>
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.regex_pattern') %></label>
                   <input type="text" name="custom_fields[__IDX__][regex_pattern]" value="" class="form-control form-control-sm font-mono" placeholder="^[A-Z0-9-]+$">
                 </div>
               </div>
 
               <div class="tuning-numeric-group row g-2 d-none">
                 <div class="col-6 col-md-4">
-                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_value', default: 'Min value') %></label>
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_value') %></label>
                   <input type="number" step="any" name="custom_fields[__IDX__][min_value]" value="" class="form-control form-control-sm font-mono" placeholder="0">
                 </div>
                 <div class="col-6 col-md-4">
-                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_value', default: 'Max value') %></label>
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_value') %></label>
                   <input type="number" step="any" name="custom_fields[__IDX__][max_value]" value="" class="form-control form-control-sm font-mono" placeholder="10000">
                 </div>
               </div>
 
               <div class="tuning-select-group d-none">
-                <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.select_options_label', default: 'List options (comma or newline separated)') %></label>
+                <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.select_options_label') %></label>
                 <input type="text"
                        name="custom_fields[__IDX__][select_options]"
                        value=""
@@ -878,14 +878,51 @@
     </div>
 
   <% elsif @active_tab == "export" && can_manage %>
-    <div class="card p-5 text-center">
-      <div class="empty-state-icon mx-auto mb-3"><i class="bi bi-file-earmark-spreadsheet"></i></div>
-      <h2 class="h5 fw-bold mb-2"><%= t('home.toolbar_export') %></h2>
-      <p class="text-secondary small mb-3"><%= @inventory.title %> (<%= @inventory.items_count %> <%= t('home.col_items') %>)</p>
-      <div>
-        <%= link_to export_items_csv_inventory_path(@inventory), class: "btn btn-primary btn-sm fw-semibold rounded-3 px-4 py-2 shadow-sm" do %>
-          <i class="bi bi-download me-1"></i><%= t('home.toolbar_export') %>
-        <% end %>
+    <div class="card p-4 p-lg-5">
+      <div class="text-center mb-4">
+        <div class="empty-state-icon mx-auto mb-3"><i class="bi bi-file-earmark-spreadsheet"></i></div>
+        <h2 class="h5 fw-bold mb-1"><%= t('inventory.export_title') %></h2>
+        <p class="text-secondary small mb-0">
+          <%= @inventory.title %> &bull;
+          <span class="font-mono"><%= @inventory.items_count %> <%= t('home.col_items') %></span> &bull;
+          <span class="font-mono"><%= @custom_fields.size %> <%= t('inventory.tabs.fields') %></span>
+        </p>
+      </div>
+
+      <div class="row g-3 justify-content-center">
+        <div class="col-md-5">
+          <div class="bento-stat-card h-100 d-flex flex-column justify-content-between gap-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1.5">
+                <i class="bi bi-filetype-csv fs-4 text-primary"></i>
+                <h3 class="h6 fw-bold mb-0"><%= t('inventory.export_csv_btn') %></h3>
+              </div>
+              <p class="text-secondary small mb-0"><%= t('inventory.export_csv_hint') %></p>
+            </div>
+            <%= link_to export_items_csv_inventory_path(@inventory),
+                  data: { turbo: false },
+                  class: "btn btn-outline-primary btn-sm fw-semibold rounded-3 py-2 w-100" do %>
+              <i class="bi bi-download me-1"></i><%= t('inventory.export_csv_btn') %>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="col-md-5">
+          <div class="bento-stat-card h-100 d-flex flex-column justify-content-between gap-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1.5">
+                <i class="bi bi-file-earmark-excel-fill fs-4 text-success"></i>
+                <h3 class="h6 fw-bold mb-0"><%= t('inventory.export_xlsx_btn') %></h3>
+              </div>
+              <p class="text-secondary small mb-0"><%= t('inventory.export_xlsx_hint') %></p>
+            </div>
+            <%= link_to export_items_xlsx_inventory_path(@inventory),
+                  data: { turbo: false },
+                  class: "btn btn-primary btn-sm fw-semibold rounded-3 py-2 w-100 shadow-sm" do %>
+              <i class="bi bi-file-earmark-arrow-down me-1"></i><%= t('inventory.export_xlsx_btn') %>
+            <% end %>
+          </div>
+        </div>
       </div>
     </div>
   <% end %>

@@ -10,8 +10,8 @@ Rails.application.routes.draw do
   delete "session/sign_out",      to: "sessions#destroy",       as: :sign_out
 
   # Official OmniAuth 2.0 Callback Routes (Section 3)
-  match "/auth/:provider/callback", to: "sessions#omniauth", via: %i[get post], as: :omniauth_callback
-  get   "/auth/failure",            to: "sessions#omniauth_failure",             as: :omniauth_failure
+  match "/auth/:provider/callback", to: "sessions#omniauth", via: %i[ get post ], as: :omniauth_callback
+  get   "/auth/failure",            to: "sessions#omniauth_failure",               as: :omniauth_failure
 
   post "preferences/locale", to: "preferences#update_locale", as: :update_locale
   post "preferences/theme",  to: "preferences#update_theme",  as: :update_theme
@@ -23,21 +23,21 @@ Rails.application.routes.draw do
   # Direct Signed Cloud Upload signature endpoint (zero image bytes touch web server)
   post "uploads/signature", to: "uploads#signature", as: :upload_signature
 
-  resources :users, only: %i[show] do
+  resources :users, only: %i[ show ] do
     collection do
       get :autocomplete
     end
   end
 
   namespace :admin do
-    resources :users, only: %i[index] do
+    resources :users, only: %i[ index ] do
       collection do
         post :bulk_action
       end
     end
   end
 
-  resources :inventories, only: %i[index show create update destroy] do
+  resources :inventories, only: %i[ index show create update destroy ] do
     collection do
       delete :bulk_destroy
       get    :export_csv
@@ -49,9 +49,10 @@ Rails.application.routes.draw do
       post   :grant_access
       delete :revoke_access
       get    :export_items_csv
+      get    :export_items_xlsx
     end
 
-    resources :items, only: %i[show new create edit update] do
+    resources :items, only: %i[ show new create edit update ] do
       collection do
         delete :bulk_destroy
       end
@@ -60,6 +61,6 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :comments, only: %i[index create]
+    resources :comments, only: %i[ index create ]
   end
 end

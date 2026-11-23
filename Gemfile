@@ -10,6 +10,8 @@ gem "stimulus-rails"
 gem "jbuilder"
 gem "bcrypt", "~> 3.1.7"
 gem "redcarpet", "~> 3.6"
+gem "csv", "~> 3.3"
+gem "caxlsx", "~> 4.0"
 
 # Official OAuth 2.0 Authentication Gems (Section 3 & 17)
 gem "omniauth", "~> 2.1"
@@ -41,4 +43,3 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
-gem "csv", "~> 3.3"
