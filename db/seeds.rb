@@ -52,20 +52,62 @@ ActiveRecord::Base.transaction do
       inv.update!(tag_list: spec.fetch("tags").join(", "))
     end
 
+    # Idempotently seed unlimited dynamic custom fields with tuning & select options
+    fields_by_name = {}
+    Array(spec["dynamic_fields"]).each do |df_spec|
+      cf = inv.custom_fields.find_by(name: df_spec.fetch("name")) ||
+           (df_spec["legacy_slot_key"].present? ? inv.custom_fields.find_by(legacy_slot_key: df_spec["legacy_slot_key"]) : nil) ||
+           inv.custom_fields.build(name: df_spec.fetch("name"))
+
+      cf.assign_attributes(
+        field_type:      df_spec.fetch("field_type"),
+        name:            df_spec.fetch("name"),
+        description:     df_spec["description"].to_s,
+        show_in_table:   df_spec.fetch("show_in_table", true),
+        position:        df_spec.fetch("position", 1),
+        min_length:      df_spec["min_length"],
+        max_length:      df_spec["max_length"],
+        regex_pattern:   df_spec["regex_pattern"],
+        min_value:       df_spec["min_value"],
+        max_value:       df_spec["max_value"],
+        select_options:  df_spec["select_options"],
+        legacy_slot_key: df_spec["legacy_slot_key"]
+      )
+      cf.save!
+      fields_by_name[cf.name] = cf
+    end
+
+    inv.custom_fields.reload
+
     spec.fetch("items").each do |item_spec|
       item = inv.items.find_or_initialize_by(custom_id: item_spec.fetch("custom_id"))
-      next unless item.new_record?
+      is_new_item = item.new_record?
 
-      item.assign_attributes(
-        created_by:         users.fetch(item_spec.fetch("creator")),
-        custom_string1_val: item_spec["string1"],
-        custom_int1_val:    item_spec["int1"],
-        custom_int2_val:    item_spec["int2"],
-        custom_link1_val:   item_spec["link1"]
-      )
-      item.save!
-      item_ts = item_spec["hours_ago"] ? item_spec["hours_ago"].hours.ago : item_spec.fetch("days_ago").days.ago
-      item.update_columns(created_at: item_ts, updated_at: item_ts)
+      if is_new_item
+        item.assign_attributes(
+          created_by:         users.fetch(item_spec.fetch("creator")),
+          custom_string1_val: item_spec["string1"],
+          custom_int1_val:    item_spec["int1"],
+          custom_int2_val:    item_spec["int2"],
+          custom_link1_val:   item_spec["link1"]
+        )
+        item.save!
+        item_ts = item_spec["hours_ago"] ? item_spec["hours_ago"].hours.ago : item_spec.fetch("days_ago").days.ago
+        item.update_columns(created_at: item_ts, updated_at: item_ts)
+      end
+
+      # Ensure extra dynamic field values (e.g. select fields) exist idempotently
+      extra_values = item_spec["extra"] || {}
+      extra_values.each do |field_name, val|
+        cf = fields_by_name[field_name]
+        next unless cf
+
+        fv = item.item_field_values.find_or_initialize_by(custom_field_id: cf.id)
+        if fv.new_record?
+          fv.assign_raw_value(val)
+          fv.save!
+        end
+      end
     end
   end
 
@@ -77,6 +119,7 @@ ActiveRecord::Base.transaction do
   raise "Seed integrity error: expected >= 6 inventories, got #{Inventory.count}" if Inventory.count < 6
   raise "Seed integrity error: expected >= 21 items, got #{Item.count}"           if Item.count < 21
   raise "Seed integrity error: expected >= 12 active tags, got #{active_tags}"    if active_tags < 12
+  raise "Seed integrity error: expected dynamic custom fields"                    if CustomField.count.zero?
 
-  puts "==> Seed verified! Categories: #{Category.count}, Inventories: #{Inventory.count}, Items: #{Item.count}, Active Tags: #{active_tags}"
+  puts "==> Seed verified! Categories: #{Category.count}, Inventories: #{Inventory.count}, Items: #{Item.count}, Dynamic Fields: #{CustomField.count}, Active Tags: #{active_tags}"
 end

@@ -45,7 +45,16 @@ module ApplicationHelper
   end
 
   def localized_field_type_label(type_key, fallback = nil)
-    I18n.t("inventory.field_slot_labels.#{type_key}", default: fallback || type_key.to_s.humanize)
+    I18n.t("inventory.field_slot_labels.#{type_key}", default: fallback || CustomField::FIELD_TYPES[type_key.to_s] || type_key.to_s.humanize)
+  end
+
+  def format_numeric_value(val)
+    return "—" if val.nil? || val == "" || val == "—"
+
+    dec = val.is_a?(BigDecimal) ? val : BigDecimal(val.to_s)
+    dec.frac.zero? ? dec.to_i.to_s : dec.to_s("F").sub(/\.?0+\z/, "")
+  rescue ArgumentError
+    val.to_s
   end
 
   # Uses static_preview: true so zero database queries run inside table loops (Section 14)

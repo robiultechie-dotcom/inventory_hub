@@ -21,21 +21,22 @@ class InventoriesController < ApplicationController
   end
 
   def show
-    @active_tab   = params[:tab].presence || "items"
-    @active_tab   = "items" if %w[settings custom_id fields access stats export].include?(@active_tab) && !@inventory.manageable_by?(current_user)
-    @table_fields = @inventory.table_custom_fields
-    @id_generator = CustomIdGenerator.new(@inventory)
+    @active_tab           = params[:tab].presence || "items"
+    @active_tab           = "items" if %w[settings custom_id fields access stats export].include?(@active_tab) && !@inventory.manageable_by?(current_user)
+    @custom_fields        = @inventory.ordered_custom_fields
+    @dynamic_table_fields = @inventory.dynamic_table_fields
+    @table_fields         = @inventory.table_custom_fields
+    @id_generator         = CustomIdGenerator.new(@inventory)
 
-    items_scope        = @inventory.items.includes(:created_by).order(created_at: :desc)
+    items_scope        = @inventory.items.includes(:created_by, :item_field_values).order(created_at: :desc)
     @total_items_count = @inventory.items_count
     @total_pages       = [ (@total_items_count.to_f / ITEMS_PER_PAGE).ceil, 1 ].max
     @page              = params[:page].to_i.clamp(1, @total_pages)
     @items             = items_scope.offset((@page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).to_a
 
-    @liked_item_ids = if current_user && @items.any?
-                        current_user.likes.where(item_id: @items.map(&:id)).pluck(:item_id).to_set
-    else
-                        Set.new
+    @liked_item_ids = Set.new
+    if current_user && @items.any?
+      @liked_item_ids = current_user.likes.where(item_id: @items.map(&:id)).pluck(:item_id).to_set
     end
 
     @comments = @inventory.comments.includes(:user)
@@ -74,20 +75,19 @@ class InventoriesController < ApplicationController
   def update_custom_id
     verify_lock_version!(params[:lock_version])
 
-    elements = if params[:clear_all] == "1"
-                 []
-    else
-                 Array(params[:elements]).filter_map do |el|
-                   type = el[:type].to_s
-                   next unless CustomIdGenerator::SUPPORTED_ELEMENTS.key?(type)
+    elements = []
+    unless params[:clear_all] == "1"
+      elements = Array(params[:elements]).filter_map do |el|
+        type = el[:type].to_s
+        next unless CustomIdGenerator::SUPPORTED_ELEMENTS.key?(type)
 
-                   spec = el[:spec].to_s
-                   {
-                     "type"   => type,
-                     "value"  => type == "fixed" ? spec : "",
-                     "format" => type == "fixed" ? "" : spec
-                   }
-                 end.first(10)
+        spec = el[:spec].to_s
+        {
+          "type"   => type,
+          "value"  => type == "fixed" ? spec : "",
+          "format" => type == "fixed" ? "" : spec
+        }
+      end.first(10)
     end
 
     @inventory.lock_version = params[:lock_version].to_i if enforce_lock?(params[:lock_version])
@@ -105,7 +105,12 @@ class InventoriesController < ApplicationController
   def update_fields
     verify_lock_version!(params[:lock_version])
     @inventory.lock_version = params[:lock_version].to_i if enforce_lock?(params[:lock_version])
-    @inventory.apply_custom_fields_params!(params[:fields])
+
+    if params[:custom_fields_submitted] == "1" || params.key?(:custom_fields)
+      @inventory.sync_custom_fields_params!(dynamic_custom_fields_params)
+    else
+      @inventory.apply_custom_fields_params!(params[:fields])
+    end
 
     if @inventory.save
       render_save_success(t("flashes.fields_updated"), "fields")
@@ -163,15 +168,15 @@ class InventoriesController < ApplicationController
   end
 
   def export_items_csv
-    active_fields = @inventory.active_custom_fields
-    items = @inventory.items.includes(:created_by).order(created_at: :asc)
+    dynamic_fields = @inventory.ordered_custom_fields
+    items = @inventory.items.includes(:created_by, :item_field_values).order(created_at: :asc)
 
     csv_data = CSV.generate(headers: true) do |csv|
-      headers = [ "Custom ID", "Creator", "Created At", "Likes" ] + active_fields.map { |f| f[:name] }
+      headers = [ "Custom ID", "Creator", "Created At", "Likes" ] + dynamic_fields.map(&:name)
       csv << headers
       items.each do |item|
         row = [ item.custom_id, item.created_by.name, item.created_at.iso8601, item.likes_count ]
-        row.concat(active_fields.map { |f| item.public_send(f[:value_column]) })
+        row.concat(dynamic_fields.map { |f| item.value_for(f) })
         csv << row
       end
     end
@@ -182,7 +187,7 @@ class InventoriesController < ApplicationController
   private
 
   def set_inventory
-    @inventory = Inventory.find(params[:id])
+    @inventory = Inventory.includes(:custom_fields).find(params[:id])
   end
 
   def authorize_manager!
@@ -196,6 +201,22 @@ class InventoriesController < ApplicationController
 
   def inventory_params
     params.require(:inventory).permit(:title, :description, :category_id, :image_url, :is_public, :tag_list)
+  end
+
+  def dynamic_custom_fields_params
+    raw_list = params[:custom_fields]
+    return [] unless raw_list.is_a?(Array) || raw_list.is_a?(ActionController::Parameters)
+
+    entries = raw_list.is_a?(Array) ? raw_list : raw_list.values
+    entries.filter_map do |entry|
+      next unless entry.is_a?(ActionController::Parameters)
+
+      entry.permit(
+        :id, :field_type, :name, :description, :show_in_table, :position,
+        :min_length, :max_length, :regex_pattern, :min_value, :max_value,
+        :select_options, :_destroy
+      ).to_h
+    end
   end
 
   def enforce_lock?(submitted_version)
@@ -212,6 +233,8 @@ class InventoriesController < ApplicationController
 
   def render_save_success(notice_msg, tab)
     generator = CustomIdGenerator.new(@inventory)
+    saved_fields = @inventory.custom_fields.reload.to_a
+
     respond_to do |format|
       format.json do
         render json: {
@@ -226,7 +249,8 @@ class InventoriesController < ApplicationController
           is_public:           @inventory.is_public?,
           visibility_label:    @inventory.is_public? ? t("common.public") : t("common.restricted"),
           description_html:    helpers.render_markdown(@inventory.description).to_s,
-          active_fields_count: @inventory.active_custom_fields.size,
+          active_fields_count: saved_fields.size,
+          custom_fields:       saved_fields.map { |cf| { id: cf.id, name: cf.name, field_type: cf.field_type, position: cf.position } },
           tags:                @inventory.tags.map { |tag| { name: tag.name, url: search_path(tag: tag.name) } }
         }
       end

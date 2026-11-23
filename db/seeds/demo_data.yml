@@ -59,6 +59,11 @@ inventories:
       custom_link1_desc: "Official PDF datasheet URL"
       custom_link1_show_in_table: true
       custom_link1_position: 4
+    dynamic_fields:
+      - { name: "Model", field_type: "string", description: "Component part number and description", show_in_table: true, position: 1, min_length: 2, max_length: 120, legacy_slot_key: "string1" }
+      - { name: "Voltage (V)", field_type: "int", description: "Nominal operating voltage (0–100V)", show_in_table: true, position: 2, min_value: 0, max_value: 100, legacy_slot_key: "int1" }
+      - { name: "Current (A)", field_type: "int", description: "Maximum continuous current in Amps", show_in_table: true, position: 3, min_value: 0, max_value: 50, legacy_slot_key: "int2" }
+      - { name: "Datasheet Link", field_type: "link", description: "Official PDF datasheet URL", show_in_table: true, position: 4, legacy_slot_key: "link1" }
     items:
       - { custom_id: "PART-0000001", string1: "STM32F407VGT6 ARM MCU", int1: 3.3, int2: 0.25, link1: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", creator: elena, days_ago: 8 }
       - { custom_id: "PART-0000002", string1: "ESP32-S3-WROOM-1 Wi-Fi/BLE", int1: 3.3, int2: 0.50, link1: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", creator: alex, days_ago: 6 }
@@ -99,12 +104,18 @@ inventories:
       custom_link1_desc: "Manufacturer specification page"
       custom_link1_show_in_table: true
       custom_link1_position: 4
+    dynamic_fields:
+      - { name: "Hardware Model", field_type: "string", description: "Laptop or workstation model", show_in_table: true, position: 1, min_length: 2, max_length: 120, legacy_slot_key: "string1" }
+      - { name: "Device Type", field_type: "select", description: "Hardware form factor", show_in_table: true, position: 2, select_options: "Laptop\nWorkstation\nDesktop" }
+      - { name: "RAM (GB)", field_type: "int", description: "Installed memory capacity (4–1024 GB)", show_in_table: true, position: 3, min_value: 4, max_value: 1024, legacy_slot_key: "int1" }
+      - { name: "Storage (GB)", field_type: "int", description: "NVMe SSD storage capacity", show_in_table: true, position: 4, min_value: 128, max_value: 32000, legacy_slot_key: "int2" }
+      - { name: "Asset Spec URL", field_type: "link", description: "Manufacturer specification page", show_in_table: true, position: 5, legacy_slot_key: "link1" }
     items:
-      - { custom_id: "COMP-2026-0001", string1: "MacBook Pro 16 M3 Max", int1: 64, int2: 2000, link1: "https://www.apple.com/macbook-pro/", creator: alex, days_ago: 9 }
-      - { custom_id: "COMP-2026-0002", string1: "ThinkPad X1 Carbon Gen 12", int1: 32, int2: 1000, link1: "https://www.lenovo.com/thinkpad/", creator: elena, days_ago: 7 }
-      - { custom_id: "COMP-2026-0003", string1: "HP EliteBook 845 G10 Ryzen PRO", int1: 32, int2: 1000, link1: "https://www.hp.com/elitebook/", creator: marcus, days_ago: 5 }
-      - { custom_id: "COMP-2026-0004", string1: "Dell Precision 7960 GPU Tower", int1: 128, int2: 4000, link1: "https://www.dell.com/precision/", creator: sophia, days_ago: 4 }
-      - { custom_id: "COMP-2026-0005", string1: "Mac Studio M2 Ultra", int1: 128, int2: 2000, link1: "https://www.apple.com/mac-studio/", creator: alex, days_ago: 2 }
+      - { custom_id: "COMP-2026-0001", string1: "MacBook Pro 16 M3 Max", int1: 64, int2: 2000, link1: "https://www.apple.com/macbook-pro/", extra: { "Device Type": "Laptop" }, creator: alex, days_ago: 9 }
+      - { custom_id: "COMP-2026-0002", string1: "ThinkPad X1 Carbon Gen 12", int1: 32, int2: 1000, link1: "https://www.lenovo.com/thinkpad/", extra: { "Device Type": "Laptop" }, creator: elena, days_ago: 7 }
+      - { custom_id: "COMP-2026-0003", string1: "HP EliteBook 845 G10 Ryzen PRO", int1: 32, int2: 1000, link1: "https://www.hp.com/elitebook/", extra: { "Device Type": "Laptop" }, creator: marcus, days_ago: 5 }
+      - { custom_id: "COMP-2026-0004", string1: "Dell Precision 7960 GPU Tower", int1: 128, int2: 4000, link1: "https://www.dell.com/precision/", extra: { "Device Type": "Workstation" }, creator: sophia, days_ago: 4 }
+      - { custom_id: "COMP-2026-0005", string1: "Mac Studio M2 Ultra", int1: 128, int2: 2000, link1: "https://www.apple.com/mac-studio/", extra: { "Device Type": "Desktop" }, creator: alex, days_ago: 2 }
 
   - title: "Global Compliance & HR Contracts"
     creator: sophia
@@ -138,6 +149,11 @@ inventories:
       custom_link1_desc: "Verified document URL"
       custom_link1_show_in_table: true
       custom_link1_position: 4
+    dynamic_fields:
+      - { name: "Document Title", field_type: "string", description: "Official contract or audit name", show_in_table: true, position: 1, legacy_slot_key: "string1" }
+      - { name: "Retention (Yrs)", field_type: "int", description: "Legal archive period in years", show_in_table: true, position: 2, min_value: 1, max_value: 50, legacy_slot_key: "int1" }
+      - { name: "Revision", field_type: "int", description: "Approved revision number", show_in_table: true, position: 3, min_value: 1, legacy_slot_key: "int2" }
+      - { name: "Signed PDF", field_type: "link", description: "Verified document URL", show_in_table: true, position: 4, legacy_slot_key: "link1" }
     items:
       - { custom_id: "HR-DOC-001", string1: "ISO 27001 Annual Security Audit", int1: 7, int2: 3, link1: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", creator: sophia, days_ago: 10 }
       - { custom_id: "HR-DOC-002", string1: "SOC 2 Type II Compliance Report", int1: 5, int2: 2, link1: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", creator: alex, days_ago: 8 }
@@ -176,10 +192,16 @@ inventories:
       custom_link1_desc: "Publisher catalog page"
       custom_link1_show_in_table: true
       custom_link1_position: 4
+    dynamic_fields:
+      - { name: "Book & Author", field_type: "string", description: "Title and primary author", show_in_table: true, position: 1, legacy_slot_key: "string1" }
+      - { name: "Availability", field_type: "select", description: "Shelf circulation status", show_in_table: true, position: 2, select_options: "Available\nChecked Out\nReference Only" }
+      - { name: "Year", field_type: "int", description: "Year of publication", show_in_table: true, position: 3, min_value: 1950, max_value: 2030, legacy_slot_key: "int1" }
+      - { name: "Copies", field_type: "int", description: "Physical copies in shelf", show_in_table: true, position: 4, min_value: 0, max_value: 500, legacy_slot_key: "int2" }
+      - { name: "Reference URL", field_type: "link", description: "Publisher catalog page", show_in_table: true, position: 5, legacy_slot_key: "link1" }
     items:
-      - { custom_id: "LIB-BK-001", string1: "Designing Data-Intensive Applications — Martin Kleppmann", int1: 2017, int2: 4, link1: "https://dataintensive.net/", creator: marcus, days_ago: 11 }
-      - { custom_id: "LIB-BK-002", string1: "Clean Architecture — Robert C. Martin", int1: 2017, int2: 3, link1: "https://www.oreilly.com/", creator: elena, days_ago: 7 }
-      - { custom_id: "LIB-BK-003", string1: "Site Reliability Engineering — Betsy Beyer et al.", int1: 2016, int2: 2, link1: "https://sre.google/books/", creator: alex, days_ago: 4 }
+      - { custom_id: "LIB-BK-001", string1: "Designing Data-Intensive Applications — Martin Kleppmann", int1: 2017, int2: 4, link1: "https://dataintensive.net/", extra: { "Availability": "Available" }, creator: marcus, days_ago: 11 }
+      - { custom_id: "LIB-BK-002", string1: "Clean Architecture — Robert C. Martin", int1: 2017, int2: 3, link1: "https://www.oreilly.com/", extra: { "Availability": "Available" }, creator: elena, days_ago: 7 }
+      - { custom_id: "LIB-BK-003", string1: "Site Reliability Engineering — Betsy Beyer et al.", int1: 2016, int2: 2, link1: "https://sre.google/books/", extra: { "Availability": "Reference Only" }, creator: alex, days_ago: 4 }
 
   - title: "Clinical Diagnostic Lab Instruments"
     creator: elena
@@ -213,6 +235,11 @@ inventories:
       custom_link1_desc: "Calibration and service manual"
       custom_link1_show_in_table: true
       custom_link1_position: 4
+    dynamic_fields:
+      - { name: "Instrument Model", field_type: "string", description: "Diagnostic hardware name", show_in_table: true, position: 1, legacy_slot_key: "string1" }
+      - { name: "Cal. Interval (Days)", field_type: "int", description: "Calibration cycle in days", show_in_table: true, position: 2, min_value: 1, max_value: 730, legacy_slot_key: "int1" }
+      - { name: "Power (W)", field_type: "int", description: "Rated power consumption", show_in_table: true, position: 3, min_value: 0, max_value: 10000, legacy_slot_key: "int2" }
+      - { name: "Manual PDF", field_type: "link", description: "Calibration and service manual", show_in_table: true, position: 4, legacy_slot_key: "link1" }
     items:
       - { custom_id: "LAB-BIO-001", string1: "UV-Vis Spectrophotometer Lambda 365", int1: 90, int2: 180, link1: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", creator: elena, days_ago: 12 }
       - { custom_id: "LAB-BIO-002", string1: "Automated PCR Thermal Cycler Pro", int1: 180, int2: 450, link1: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", creator: sophia, days_ago: 6 }
@@ -249,5 +276,10 @@ inventories:
       custom_link1_desc: "Vendor warranty document"
       custom_link1_show_in_table: true
       custom_link1_position: 4
+    dynamic_fields:
+      - { name: "Asset Name", field_type: "string", description: "Furniture brand and model", show_in_table: true, position: 1, legacy_slot_key: "string1" }
+      - { name: "Floor", field_type: "int", description: "Building floor location", show_in_table: true, position: 2, min_value: 1, max_value: 100, legacy_slot_key: "int1" }
+      - { name: "Quantity", field_type: "int", description: "Total deployed units", show_in_table: true, position: 3, min_value: 0, legacy_slot_key: "int2" }
+      - { name: "Warranty Link", field_type: "link", description: "Vendor warranty document", show_in_table: true, position: 4, legacy_slot_key: "link1" }
     items:
       - { custom_id: "FURN-HQ-001", string1: "Herman Miller Aeron Ergonomic Chair (Size B)", int1: 4, int2: 24, link1: "https://www.hermanmiller.com/", creator: alex, days_ago: 14 }

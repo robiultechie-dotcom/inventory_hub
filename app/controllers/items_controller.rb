@@ -7,17 +7,20 @@ class ItemsController < ApplicationController
   before_action :authorize_writer!, only: %i[new create edit update bulk_destroy]
 
   def show
+    @custom_fields = @inventory.ordered_custom_fields
     @active_fields = @inventory.active_custom_fields
   end
 
   def new
+    @custom_fields = @inventory.ordered_custom_fields
     @active_fields = @inventory.active_custom_fields
-    generated_id = CustomIdGenerator.new(@inventory).generate(preview: false)
-    @item = @inventory.items.build(custom_id: generated_id)
+    generated_id   = CustomIdGenerator.new(@inventory).generate(preview: false)
+    @item          = @inventory.items.build(custom_id: generated_id)
   end
 
   def create
-    @active_fields = @inventory.active_custom_fields
+    @custom_fields  = @inventory.ordered_custom_fields
+    @active_fields  = @inventory.active_custom_fields
     submitted_attrs = item_params.to_h
 
     # Preserve visible generated/edited Custom ID so parallel duplicates trigger DB conflict rejection (Section 6)
@@ -27,6 +30,7 @@ class ItemsController < ApplicationController
 
     @item = @inventory.items.build(submitted_attrs)
     @item.created_by = current_user
+    @item.assign_dynamic_field_values(permitted_dynamic_field_values) if params.key?(:field_values)
 
     if @item.save
       redirect_to inventory_path(@inventory, tab: "items"), notice: t("flashes.item_created")
@@ -39,11 +43,13 @@ class ItemsController < ApplicationController
   end
 
   def edit
+    @custom_fields = @inventory.ordered_custom_fields
     @active_fields = @inventory.active_custom_fields
   end
 
   def update
-    @active_fields = @inventory.active_custom_fields
+    @custom_fields    = @inventory.ordered_custom_fields
+    @active_fields    = @inventory.active_custom_fields
     submitted_version = params.dig(:item, :lock_version)
     force_overwrite   = params[:force_overwrite] == "1"
 
@@ -52,7 +58,10 @@ class ItemsController < ApplicationController
     end
 
     attrs = force_overwrite ? item_params.except(:lock_version) : item_params
-    if @item.update(attrs)
+    @item.assign_attributes(attrs)
+    @item.assign_dynamic_field_values(permitted_dynamic_field_values) if params.key?(:field_values)
+
+    if @item.save
       redirect_to inventory_path(@inventory, tab: "items"), notice: t("flashes.item_updated")
     else
       render :edit, status: :unprocessable_entity
@@ -61,6 +70,7 @@ class ItemsController < ApplicationController
     @conflict_detected = true
     stale_version = params.dig(:item, :lock_version) || @item.lock_version
     @item.assign_attributes(item_params.except(:lock_version))
+    @item.assign_dynamic_field_values(permitted_dynamic_field_values) if params.key?(:field_values)
     @item.lock_version = stale_version
     render :edit, status: :conflict
   rescue ActiveRecord::RecordNotUnique
@@ -78,11 +88,11 @@ class ItemsController < ApplicationController
   def toggle_like
     existing_like = @item.likes.find_by(user_id: current_user.id)
     liked = if existing_like
-              existing_like.destroy
-              false
+      existing_like.destroy
+      false
     else
-              @item.likes.create!(user: current_user)
-              true
+      @item.likes.create!(user: current_user)
+      true
     end
 
     @item.reload
@@ -101,11 +111,11 @@ class ItemsController < ApplicationController
   private
 
   def set_inventory
-    @inventory = Inventory.find(params[:inventory_id])
+    @inventory = Inventory.includes(:custom_fields).find(params[:inventory_id])
   end
 
   def set_item
-    @item = @inventory.items.find(params[:id])
+    @item = @inventory.items.includes(:item_field_values).find(params[:id])
   end
 
   def authorize_writer!
@@ -123,5 +133,13 @@ class ItemsController < ApplicationController
       :custom_link1_val,   :custom_link2_val,   :custom_link3_val,
       :custom_bool1_val,   :custom_bool2_val,   :custom_bool3_val
     )
+  end
+
+  def permitted_dynamic_field_values
+    raw = params[:field_values]
+    return {} unless raw.is_a?(ActionController::Parameters)
+
+    allowed_keys = @inventory.ordered_custom_fields.map { |cf| cf.id.to_s }
+    raw.permit(*allowed_keys).to_h
   end
 end

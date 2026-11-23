@@ -7,35 +7,34 @@ class SearchController < ApplicationController
     @query = params[:q].to_s.strip
     @tag   = params[:tag].to_s.strip.downcase
 
-    @inventories = if @tag.present?
-                     Inventory.where(
-                       "EXISTS (SELECT 1 FROM inventory_tags INNER JOIN tags ON tags.id = inventory_tags.tag_id " \
-                       "WHERE inventory_tags.inventory_id = inventories.id AND LOWER(tags.name) = ?)",
-                       @tag
-                     ).includes(:category, :creator, :tags).order(created_at: :desc)
-    elsif @query.present?
-                     Inventory.full_text_search(@query)
-                              .includes(:category, :creator, :tags)
-                              .order(created_at: :desc)
-                              .limit(50)
-    else
-                     Inventory.none
-    end
+    @inventories =
+      if @tag.present?
+        Inventory.where(
+          "EXISTS (SELECT 1 FROM inventory_tags INNER JOIN tags ON tags.id = inventory_tags.tag_id " \
+          "WHERE inventory_tags.inventory_id = inventories.id AND LOWER(tags.name) = ?)",
+          @tag
+        ).includes(:category, :creator, :tags).order(created_at: :desc)
+      elsif @query.present?
+        Inventory.full_text_search(@query)
+                 .includes(:category, :creator, :tags)
+                 .order(created_at: :desc)
+                 .limit(50)
+      else
+        Inventory.none
+      end
 
-    @items = if @query.present?
-               Item.full_text_search(@query)
-                   .includes(:inventory, :created_by)
+    @items = []
+    if @query.present?
+      @items = Item.full_text_search(@query)
+                   .includes(:created_by, :item_field_values, inventory: :custom_fields)
                    .order(created_at: :desc)
                    .limit(50)
                    .to_a
-    else
-               []
     end
 
-    @liked_item_ids = if current_user && @items.any?
-                        current_user.likes.where(item_id: @items.map(&:id)).pluck(:item_id).to_set
-    else
-                        Set.new
+    @liked_item_ids = Set.new
+    if current_user && @items.any?
+      @liked_item_ids = current_user.likes.where(item_id: @items.map(&:id)).pluck(:item_id).to_set
     end
 
     @writable_inventory_ids = preload_writable_inventory_ids(@items)
@@ -43,16 +42,19 @@ class SearchController < ApplicationController
 
   def suggestions
     q = params[:q].to_s.strip
-    inventories = if q.present?
-                    Inventory.full_text_search(q).includes(:category, :creator).limit(5)
-    else
-                    Inventory.includes(:category, :creator).order(created_at: :desc).limit(5)
-    end
+    inventories =
+      if q.present?
+        Inventory.full_text_search(q).includes(:category, :creator).limit(5)
+      else
+        Inventory.includes(:category, :creator).order(created_at: :desc).limit(5)
+      end
 
-    items = if q.present?
-              Item.full_text_search(q).includes(:inventory).limit(5).to_a
-    else
-              []
+    items = []
+    if q.present?
+      items = Item.full_text_search(q)
+                  .includes(:item_field_values, inventory: :custom_fields)
+                  .limit(5)
+                  .to_a
     end
     writable_ids = preload_writable_inventory_ids(items)
 
@@ -110,10 +112,9 @@ class SearchController < ApplicationController
     end.map(&:id).uniq
 
     remaining_ids = inv_ids - direct_ids
-    granted_ids = if remaining_ids.any?
-                    InventoryAccess.where(user_id: current_user.id, inventory_id: remaining_ids).pluck(:inventory_id)
-    else
-                    []
+    granted_ids = []
+    if remaining_ids.any?
+      granted_ids = InventoryAccess.where(user_id: current_user.id, inventory_id: remaining_ids).pluck(:inventory_id)
     end
 
     (direct_ids + granted_ids).to_set
