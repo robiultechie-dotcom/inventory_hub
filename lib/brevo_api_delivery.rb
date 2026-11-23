@@ -41,27 +41,15 @@ class BrevoApiDelivery
   private
 
   def post_json(payload, api_key:)
-    execute_request(payload, api_key: api_key, verify_ssl: true)
-  rescue OpenSSL::SSL::SSLError
-    raise if Rails.env.production?
-
-    execute_request(payload, api_key: api_key, verify_ssl: false)
-  end
-
-  def execute_request(payload, api_key:, verify_ssl:)
     http = Net::HTTP.new(ENDPOINT.host, ENDPOINT.port)
     http.use_ssl = true
     http.open_timeout = 10
     http.read_timeout = 15
 
-    if verify_ssl
-      store = OpenSSL::X509::Store.new
-      store.set_default_paths
-      http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      http.cert_store = store
-    else
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-    end
+    store = OpenSSL::X509::Store.new
+    store.set_default_paths
+    http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    http.cert_store = store
 
     request = Net::HTTP::Post.new(ENDPOINT.request_uri)
     request["api-key"] = api_key
