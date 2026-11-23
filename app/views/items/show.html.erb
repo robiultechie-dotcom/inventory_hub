@@ -62,34 +62,45 @@
 
 <div class="card p-4">
   <div class="row g-4">
-    <% if @active_fields.empty? %>
+    <% if @custom_fields.empty? %>
       <div class="col-12 empty-state-box py-4">
         <div class="text-secondary small"><%= t('common.no_items') %></div>
       </div>
     <% else %>
-      <% @active_fields.each do |field| %>
-        <% val = @item.public_send(field[:value_column]) %>
-        <div class="<%= field[:type] == 'text' || field[:type] == 'link' ? 'col-12' : 'col-md-6' %>">
+      <% @custom_fields.each do |field| %>
+        <% val = @item.value_for(field) %>
+        <div class="<%= field.field_type == 'text' || field.link? ? 'col-12' : 'col-md-6' %>">
           <div class="p-3.5 rounded-3 border bg-body-tertiary h-100">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-1.5">
-              <span class="modern-label text-secondary mb-0"><%= field[:name] %></span>
-              <% if field[:description].present? %>
-                <span class="text-secondary small" data-bs-toggle="tooltip" title="<%= field[:description] %>">
+              <span class="modern-label text-secondary mb-0"><%= field.name %></span>
+              <% if field.description.present? %>
+                <span class="text-secondary small" data-bs-toggle="tooltip" title="<%= field.description %>">
                   <i class="bi bi-info-circle"></i>
                 </span>
               <% end %>
             </div>
 
-            <% case field[:type] %>
+            <% case field.field_type %>
             <% when "bool" %>
               <div class="d-flex align-items-center gap-2 mt-1">
                 <input type="checkbox" class="form-check-input mt-0" <%= "checked" if val %> disabled>
                 <span class="fw-semibold small"><%= val ? t('common.true_yes') : t('common.false_no') %></span>
               </div>
+
             <% when "text" %>
               <div class="markdown-excerpt small text-body mt-1">
                 <%= val.present? ? render_markdown(val.to_s) : "—" %>
               </div>
+
+            <% when "select" %>
+              <div class="mt-1">
+                <% if val.present? %>
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1.5 fw-semibold"><%= val %></span>
+                <% else %>
+                  <span class="text-secondary">—</span>
+                <% end %>
+              </div>
+
             <% when "link" %>
               <% if val.present? %>
                 <% url_str = val.to_s %>
@@ -100,22 +111,28 @@
                   <% if url_str.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || url_str.include?("images.unsplash.com") || url_str.include?("res.cloudinary.com") || url_str.include?("iili.io") %>
                     <div class="mt-2">
                       <img src="<%= url_str %>"
-                           alt="<%= field[:name] %>"
+                           alt="<%= field.name %>"
                            class="rounded-3 border shadow-sm object-fit-cover"
                            style="max-height: 260px; max-width: 100%;"
                            onerror="this.closest('div').classList.add('d-none');">
                     </div>
                   <% elsif url_str.match?(/\.pdf(\?.*)?$/i) %>
                     <div class="mt-2 ratio ratio-16x9 rounded-3 overflow-hidden border">
-                      <iframe src="<%= url_str %>" title="<%= field[:name] %>" loading="lazy"></iframe>
+                      <iframe src="<%= url_str %>" title="<%= field.name %>" loading="lazy"></iframe>
                     </div>
                   <% end %>
                 </div>
               <% else %>
                 <span class="text-secondary">—</span>
               <% end %>
+
+            <% when "int" %>
+              <div class="fw-semibold fs-6 font-mono text-primary">
+                <%= format_numeric_value(val) %>
+              </div>
+
             <% else %>
-              <div class="fw-semibold fs-6 <%= 'font-mono text-primary' if field[:type] == 'int' %>">
+              <div class="fw-semibold fs-6">
                 <%= val.presence || "—" %>
               </div>
             <% end %>

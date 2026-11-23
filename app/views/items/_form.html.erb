@@ -1,11 +1,8 @@
 <% id_example = CustomIdGenerator.new(@inventory).generate(preview: true) %>
 
 <div class="card p-4">
-  <%= form_with model: [@inventory, @item], local: true do |f| %>
+  <%= form_with model: [ @inventory, @item ], local: true do |f| %>
     <%= f.hidden_field :lock_version %>
-    <% if @item.new_record? && @initial_generated_id.present? %>
-      <%= hidden_field_tag :initial_generated_id, @initial_generated_id %>
-    <% end %>
 
     <% if @conflict_detected %>
       <div class="alert alert-danger border-0 shadow-sm rounded-3 d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
@@ -39,7 +36,7 @@
 
     <div class="row g-3 pb-3 mb-4 border rounded-3 p-3 mx-0 bg-body-tertiary">
       <div class="col-md-6">
-        <%= f.label :custom_id, "Custom ID", class: "form-label modern-label" %>
+        <%= f.label :custom_id, t('items.custom_id_label', default: 'Custom ID'), class: "form-label modern-label" %>
         <div class="input-group">
           <span class="input-group-text bg-body font-mono text-primary"><i class="bi bi-upc-scan"></i></span>
           <%= f.text_field :custom_id,
@@ -70,36 +67,111 @@
     </div>
 
     <div class="row g-3">
-      <% @active_fields.each do |field| %>
-        <% col = field[:value_column] %>
-        <div class="<%= field[:type] == 'text' ? 'col-12' : 'col-md-6' %>">
+      <% @custom_fields.each do |field| %>
+        <% val = @item.value_for(field) %>
+        <% input_id = "item_field_#{field.id}" %>
+        <% input_name = "field_values[#{field.id}]" %>
+        <div class="<%= field.field_type == 'text' || field.link? ? 'col-12' : 'col-md-6' %>">
           <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
-            <%= f.label col, field[:name], class: "form-label modern-label mb-0" %>
-            <% if field[:description].present? %>
-              <span class="text-secondary small flex-shrink-0" data-bs-toggle="tooltip" title="<%= field[:description] %>">
+            <label for="<%= input_id %>" class="form-label modern-label mb-0"><%= field.name %></label>
+            <% if field.description.present? %>
+              <span class="text-secondary small flex-shrink-0" data-bs-toggle="tooltip" title="<%= field.description %>">
                 <i class="bi bi-info-circle"></i>
               </span>
             <% end %>
           </div>
 
-          <% case field[:type] %>
+          <% case field.field_type %>
           <% when "string" %>
-            <%= f.text_field col, class: "form-control modern-input", maxlength: 255 %>
+            <input type="text"
+                   id="<%= input_id %>"
+                   name="<%= input_name %>"
+                   value="<%= val %>"
+                   class="form-control modern-input"
+                   <%= "minlength=\"#{field.min_length}\"" if field.min_length.present? %>
+                   maxlength="<%= [ field.max_length || 255, 255 ].min %>">
+
           <% when "text" %>
-            <%= f.text_area col, rows: 3, class: "form-control modern-input" %>
+            <textarea id="<%= input_id %>"
+                      name="<%= input_name %>"
+                      rows="3"
+                      class="form-control modern-input"
+                      <%= "minlength=\"#{field.min_length}\"" if field.min_length.present? %>
+                      maxlength="<%= [ field.max_length || 10_000, 10_000 ].min %>"><%= val %></textarea>
+
           <% when "int" %>
-            <%= f.number_field col, step: "any", class: "form-control modern-input font-mono" %>
+            <input type="number"
+                   step="any"
+                   id="<%= input_id %>"
+                   name="<%= input_name %>"
+                   value="<%= val.present? ? format_numeric_value(val) : '' %>"
+                   class="form-control modern-input font-mono"
+                   <%= "min=\"#{format_numeric_value(field.min_value)}\"" if field.min_value.present? %>
+                   <%= "max=\"#{format_numeric_value(field.max_value)}\"" if field.max_value.present? %>>
+
           <% when "link" %>
-            <%= f.url_field col, class: "form-control modern-input font-mono", placeholder: "https://..." %>
+            <input type="url"
+                   id="<%= input_id %>"
+                   name="<%= input_name %>"
+                   value="<%= val %>"
+                   class="form-control modern-input font-mono"
+                   placeholder="https://...">
+
+            <% if val.present? %>
+              <% url_str = val.to_s %>
+              <div class="mt-2 p-2.5 rounded-3 border bg-body-tertiary">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-1.5">
+                  <span class="small text-secondary fw-medium"><i class="bi bi-eye me-1"></i><%= t('items.document_preview', default: 'Preview') %></span>
+                  <%= link_to url_str, target: "_blank", rel: "noopener noreferrer", class: "btn btn-sm btn-outline-primary rounded-3 py-0 px-2 font-mono" do %>
+                    <i class="bi bi-box-arrow-up-right me-1"></i><%= t('common.open') %>
+                  <% end %>
+                </div>
+                <% if url_str.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || url_str.include?("images.unsplash.com") || url_str.include?("res.cloudinary.com") || url_str.include?("iili.io") %>
+                  <img src="<%= url_str %>"
+                       alt="<%= field.name %>"
+                       class="rounded-3 border shadow-sm object-fit-cover"
+                       style="max-height: 200px; max-width: 100%;"
+                       onerror="this.closest('div').classList.add('d-none');">
+                <% elsif url_str.match?(/\.pdf(\?.*)?$/i) %>
+                  <div class="ratio ratio-16x9 rounded-3 overflow-hidden border" style="max-height: 260px;">
+                    <iframe src="<%= url_str %>" title="<%= field.name %>" loading="lazy"></iframe>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
           <% when "bool" %>
             <div class="form-check form-switch pt-1">
-              <%= f.check_box col, class: "form-check-input fs-5" %>
-              <%= f.label col, t('common.true_yes'), class: "form-check-label small ms-1" %>
+              <input type="hidden" name="<%= input_name %>" value="0">
+              <input type="checkbox"
+                     id="<%= input_id %>"
+                     name="<%= input_name %>"
+                     value="1"
+                     class="form-check-input fs-5"
+                     <%= "checked" if val %>>
+              <label for="<%= input_id %>" class="form-check-label small ms-1"><%= t('common.true_yes') %></label>
             </div>
+
+          <% when "select" %>
+            <% opts = field.parsed_select_options %>
+            <% opts = [ val.to_s ] + opts if val.present? && !opts.include?(val.to_s) %>
+            <select id="<%= input_id %>" name="<%= input_name %>" class="form-select modern-input">
+              <option value="">—</option>
+              <% opts.each do |opt| %>
+                <option value="<%= opt %>" <%= "selected" if val.to_s == opt %>><%= opt %></option>
+              <% end %>
+            </select>
           <% end %>
 
-          <% if field[:description].present? %>
-            <div class="form-text small"><%= field[:description] %></div>
+          <% if field.description.present? || field.tuning_hints.any? %>
+            <div class="form-text small d-flex flex-wrap align-items-center gap-2 mt-1">
+              <% if field.description.present? %>
+                <span><%= field.description %></span>
+              <% end %>
+              <% field.tuning_hints.each do |hint| %>
+                <span class="badge bg-body-tertiary text-secondary border font-mono fw-normal"><%= hint %></span>
+              <% end %>
+            </div>
           <% end %>
         </div>
       <% end %>

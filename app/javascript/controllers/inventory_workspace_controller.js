@@ -19,8 +19,16 @@ const I18N_WORKSPACE = {
     saveFailed: "Save failed",
     conflict: "Version Conflict!",
     maxElements: "Maximum 10 elements allowed.",
-    maxFields: "Maximum of 3 fields for this type already enabled.",
     commentFailed: "Could not post comment. Please try again.",
+    defaultSelectOptions: "Option 1, Option 2",
+    fieldLabels: {
+      string: "Single-Line Text",
+      text: "Multi-Line Text",
+      int: "Numeric",
+      link: "Document/Image",
+      bool: "True/False",
+      select: "One From List"
+    },
     hints: {
       fixed: "A piece of unchanging text. E.g., you can use Unicode emoji.",
       random_20bit: "A random value. E.g., format it as a six-digit decimal (D6) or 5-digit hex (X5_).",
@@ -39,8 +47,16 @@ const I18N_WORKSPACE = {
     saveFailed: "Error al guardar",
     conflict: "¡Conflicto de versión!",
     maxElements: "Se permiten máximo 10 elementos.",
-    maxFields: "Ya se habilitaron los 3 campos máximos de este tipo.",
     commentFailed: "No se pudo publicar el comentario. Inténtalo de nuevo.",
+    defaultSelectOptions: "Opción 1, Opción 2",
+    fieldLabels: {
+      string: "Texto de una línea",
+      text: "Texto multilínea",
+      int: "Numérico",
+      link: "Documento/Imagen",
+      bool: "Verdadero/Falso",
+      select: "Lista de opciones"
+    },
     hints: {
       fixed: "Texto fijo inmutable. P. ej., puedes usar emojis Unicode.",
       random_20bit: "Valor aleatorio de 20 bits. Formatea como decimal (D6) o hex (X5_).",
@@ -87,6 +103,7 @@ export default class extends Controller {
     "idPreview",
     "clearAllInput",
     "fieldsList",
+    "fieldsEmptyState",
     "fieldTypeSelect",
     "userAccessSelect"
   ]
@@ -100,7 +117,7 @@ export default class extends Controller {
     this.lastSavedCounter = 0
     this.activeSavePromise = null
     this.isSubmittingComment = false
-    this.popoverInstances = []
+    this.popoverInstances = new Set()
 
     this.beforeUnloadHandler = (event) => {
       if (this.changeCounter > this.lastSavedCounter || this.activeSavePromise) {
@@ -152,10 +169,17 @@ export default class extends Controller {
       this.fieldsSortable.destroy()
       this.fieldsSortable = null
     }
-    if (this.popoverInstances?.length) {
-      this.popoverInstances.forEach((p) => p.dispose())
-      this.popoverInstances = []
+    if (this.popoverInstances?.size) {
+      this.popoverInstances.forEach((p) => {
+        try { p.dispose() } catch (_) {}
+      })
+      this.popoverInstances.clear()
     }
+  }
+
+  saveImmediately() {
+    this.markDirty()
+    this.performAutoSave()
   }
 
   async flushBeforeTabChange(event) {
@@ -170,6 +194,21 @@ export default class extends Controller {
     }
     if (saved) {
       window.location.href = targetUrl
+    }
+  }
+
+  async flushBeforeFormSubmit(event) {
+    if (!this.hasAutoSaveFormTarget) return
+    if (!this.activeSavePromise && this.changeCounter <= this.lastSavedCounter) return
+
+    event.preventDefault()
+    const form = event.currentTarget
+    let saved = await this.performAutoSave()
+    if (saved && this.changeCounter > this.lastSavedCounter) {
+      saved = await this.performAutoSave()
+    }
+    if (saved) {
+      form.requestSubmit()
     }
   }
 
@@ -194,8 +233,6 @@ export default class extends Controller {
     })
 
     rows.forEach((row) => this.itemsTableBodyTarget.appendChild(row))
-
-    // Fix F10: Notify TableSelectionController to uncheck hidden rows & re-sync toolbar
     this.itemsTableBodyTarget.dispatchEvent(new CustomEvent("table:filtered", { bubbles: true }))
   }
 
@@ -247,7 +284,6 @@ export default class extends Controller {
         body: formData
       })
 
-      // Fix F6: Never inject redirected full-page HTML into discussion box
       if (res.status === 401 || res.redirected) {
         window.location.reload()
         return
@@ -324,7 +360,6 @@ export default class extends Controller {
     }
   }
 
-  // Fix F9: Synchronize hero header & tab counters after AJAX auto-save
   syncHeaderFromResponse(data) {
     if (this.hasHeaderTitleTarget && data.title) {
       this.headerTitleTarget.textContent = data.title
@@ -374,7 +409,34 @@ export default class extends Controller {
     }
   }
 
+  // Prevents newly created dynamic fields from being duplicated/recreated on subsequent auto-saves
+  syncSavedCustomFieldIds(savedFields) {
+    if (!this.hasFieldsListTarget || !Array.isArray(savedFields)) return
+
+    const rows = Array.from(this.fieldsListTarget.querySelectorAll(".dynamic-field-row"))
+    const assignedIds = new Set(
+      rows.map((row) => row.querySelector(".field-id-input")?.value?.trim()).filter(Boolean)
+    )
+    const unassignedServerFields = savedFields.filter((cf) => !assignedIds.has(String(cf.id)))
+
+    rows.forEach((row) => {
+      const idInput = row.querySelector(".field-id-input")
+      if (!idInput || idInput.value.trim()) return
+
+      const rowType = row.querySelector(".field-type-select")?.value
+      const matchIdx = unassignedServerFields.findIndex((cf) => cf.field_type === rowType)
+      if (matchIdx !== -1) {
+        const [matched] = unassignedServerFields.splice(matchIdx, 1)
+        idInput.value = String(matched.id)
+      }
+    })
+  }
+
   async executeAutoSaveRequest() {
+    if (this.hasFieldsListTarget) {
+      this.reindexDynamicFields()
+    }
+
     const snapshotCounter = this.changeCounter
     const headerBadge = document.getElementById("autoSaveBadge")
     if (headerBadge) {
@@ -408,6 +470,7 @@ export default class extends Controller {
         }
         if (this.hasConflictBannerTarget) this.conflictBannerTarget.classList.add("d-none")
 
+        this.syncSavedCustomFieldIds(data.custom_fields)
         this.syncHeaderFromResponse(data)
 
         if (headerBadge) {
@@ -553,6 +616,7 @@ export default class extends Controller {
           this.idListTarget.classList.remove("id-list-drag-outside")
 
           if (pointerOutside) {
+            this.disposePopoversWithin(evt.item)
             evt.item.remove()
           }
           this.computeIdPreview()
@@ -599,10 +663,10 @@ export default class extends Controller {
     }
   }
 
-  // Fix G8: Accessible click-to-remove for mobile & desktop users
   removeIdElement(event) {
     const row = event.currentTarget.closest(".id-element-row")
     if (!row) return
+    this.disposePopoversWithin(row)
     row.remove()
     this.computeIdPreview()
     this.markDirty()
@@ -679,52 +743,125 @@ export default class extends Controller {
     this.idPreviewTarget.textContent = parts.join("") || `ITEM-${String(nextSeq).padStart(4, "0")}`
   }
 
+  // Unlimited Dynamic Custom Fields Builder (Section 16)
   initCustomFieldsBuilder() {
-    if (!this.hasFieldsListTarget || !window.Sortable) return
-    this.fieldsSortable = new window.Sortable(this.fieldsListTarget, {
-      handle: ".field-drag-handle",
-      animation: 150,
-      onEnd: () => {
-        this.updateFieldPositions()
-        this.markDirty()
-      }
-    })
+    if (!this.hasFieldsListTarget) return
+    this.reindexDynamicFields()
+
+    if (window.Sortable) {
+      this.fieldsSortable = new window.Sortable(this.fieldsListTarget, {
+        handle: ".field-drag-handle",
+        draggable: ".dynamic-field-row",
+        animation: 150,
+        onEnd: () => {
+          this.reindexDynamicFields()
+          this.markDirty()
+        }
+      })
+    }
   }
 
-  addFieldSlot() {
+  addDynamicField() {
     if (!this.hasFieldsListTarget || !this.hasFieldTypeSelectTarget) return
-    const type = this.fieldTypeSelectTarget.value
-    const slot = Array.from(this.fieldsListTarget.querySelectorAll(`.field-slot-row[data-field-type="${type}"]`))
-      .find((row) => row.dataset.active === "false")
+    const template = document.getElementById("dynamicFieldRowTemplate")
+    if (!template) return
 
-    if (!slot) {
-      window.alert(this.dict.maxFields)
-      return
+    const fieldType = this.fieldTypeSelectTarget.value || "string"
+    const clone = template.content.firstElementChild.cloneNode(true)
+    const nextNumber = this.fieldsListTarget.querySelectorAll(".dynamic-field-row").length + 1
+
+    const typeSelect = clone.querySelector(".field-type-select")
+    if (typeSelect) typeSelect.value = fieldType
+
+    const nameInput = clone.querySelector(".field-name-input")
+    if (nameInput) {
+      const label = this.dict.fieldLabels[fieldType] || "Field"
+      nameInput.value = `${label} #${nextNumber}`
     }
-    slot.dataset.active = "true"
-    slot.classList.remove("d-none")
-    slot.querySelector(".field-state-input").value = "1"
-    const nameInput = slot.querySelector("input[name*='[name]']")
-    if (nameInput && !nameInput.value.trim()) {
-      nameInput.value = slot.dataset.defaultName || "Field"
+
+    if (fieldType === "select") {
+      const optionsInput = clone.querySelector(".field-select-options-input")
+      if (optionsInput && !optionsInput.value.trim()) {
+        optionsInput.value = this.dict.defaultSelectOptions
+      }
     }
-    this.fieldsListTarget.appendChild(slot)
-    this.updateFieldPositions()
+
+    this.toggleTuningPanelsForRow(clone, fieldType)
+    this.fieldsListTarget.appendChild(clone)
+    this.reindexDynamicFields()
     this.markDirty()
+
+    if (nameInput) {
+      nameInput.focus()
+      nameInput.select()
+    }
   }
 
-  removeFieldSlot(event) {
-    const row = event.currentTarget.closest(".field-slot-row")
+  removeDynamicField(event) {
+    const row = event.currentTarget.closest(".dynamic-field-row")
     if (!row) return
-    row.dataset.active = "false"
-    row.classList.add("d-none")
-    row.querySelector(".field-state-input").value = "0"
+    row.remove()
+    this.reindexDynamicFields()
     this.markDirty()
   }
 
-  updateFieldPositions() {
-    this.fieldsListTarget.querySelectorAll(".field-slot-row").forEach((row, idx) => {
-      row.querySelector(".field-position-input").value = idx + 1
+  onDynamicFieldTypeChange(event) {
+    const selectEl = event.currentTarget
+    const row = selectEl.closest(".dynamic-field-row")
+    if (!row) return
+
+    const newType = selectEl.value
+    if (newType === "select") {
+      const optionsInput = row.querySelector(".field-select-options-input")
+      if (optionsInput && !optionsInput.value.trim()) {
+        optionsInput.value = this.dict.defaultSelectOptions
+      }
+    }
+
+    this.toggleTuningPanelsForRow(row, newType)
+    this.markDirty()
+  }
+
+  toggleTuningPanelsForRow(row, fieldType) {
+    const isText = fieldType === "string" || fieldType === "text"
+    const isNumeric = fieldType === "int"
+    const isSelect = fieldType === "select"
+
+    const strip = row.querySelector(".tuning-strip")
+    const textGroup = row.querySelector(".tuning-text-group")
+    const numGroup = row.querySelector(".tuning-numeric-group")
+    const selGroup = row.querySelector(".tuning-select-group")
+
+    if (strip) strip.classList.toggle("d-none", !(isText || isNumeric || isSelect))
+    if (textGroup) textGroup.classList.toggle("d-none", !isText)
+    if (numGroup) numGroup.classList.toggle("d-none", !isNumeric)
+    if (selGroup) selGroup.classList.toggle("d-none", !isSelect)
+  }
+
+  reindexDynamicFields() {
+    if (!this.hasFieldsListTarget) return
+    const rows = Array.from(this.fieldsListTarget.querySelectorAll(".dynamic-field-row"))
+
+    if (this.hasFieldsEmptyStateTarget) {
+      this.fieldsEmptyStateTarget.classList.toggle("d-none", rows.length > 0)
+    }
+
+    rows.forEach((row, idx) => {
+      const posInput = row.querySelector(".field-position-input")
+      if (posInput) posInput.value = String(idx + 1)
+
+      row.querySelectorAll("[name]").forEach((el) => {
+        const currentName = el.getAttribute("name")
+        if (currentName && currentName.startsWith("custom_fields[")) {
+          el.setAttribute("name", currentName.replace(/^custom_fields\[[^\]]+\]/, `custom_fields[${idx}]`))
+        }
+      })
+
+      const cb = row.querySelector(".field-show-checkbox")
+      const lbl = row.querySelector(".field-show-label")
+      const checkboxId = `tbl_cf_${idx}`
+      if (cb) cb.id = checkboxId
+      if (lbl) lbl.setAttribute("for", checkboxId)
     })
   }
 
@@ -750,7 +887,18 @@ export default class extends Controller {
     if (!window.bootstrap) return
     document.querySelectorAll('[data-bs-toggle="popover"]').forEach((el) => {
       const instance = window.bootstrap.Popover.getOrCreateInstance(el, { container: "body" })
-      this.popoverInstances.push(instance)
+      this.popoverInstances.add(instance)
+    })
+  }
+
+  disposePopoversWithin(container) {
+    if (!window.bootstrap || !container) return
+    container.querySelectorAll('[data-bs-toggle="popover"]').forEach((el) => {
+      const instance = window.bootstrap.Popover.getInstance(el)
+      if (instance) {
+        this.popoverInstances.delete(instance)
+        try { instance.dispose() } catch (_) {}
+      }
     })
   }
 }

@@ -1,17 +1,17 @@
 <%
   can_manage = @inventory.manageable_by?(current_user)
   can_write  = @inventory.writable_by?(current_user)
-  primary_link_field = @table_fields.find { |f| f[:type] == "string" } || @table_fields.first
+  primary_link_field = @dynamic_table_fields.find { |f| f.field_type == "string" } || @dynamic_table_fields.first
 
   tabs = [
-    ["items",      "bi-table",                    t('inventory.tabs.items'),      @inventory.items_count,               nil,              true],
-    ["discussion", "bi-chat-dots",                t('inventory.tabs.discussion'), @comments.size,                       "chatTabCount",   true],
-    ["settings",   "bi-sliders",                  t('inventory.tabs.settings'),   nil,                                  nil,              can_manage],
-    ["custom_id",  "bi-upc-scan",                 t('inventory.tabs.custom_id'),  nil,                                  nil,              can_manage],
-    ["fields",     "bi-input-cursor-text",        t('inventory.tabs.fields'),     @inventory.active_custom_fields.size, "fieldsTabCount", can_manage],
-    ["access",     "bi-shield-check",             t('inventory.tabs.access'),     nil,                                  nil,              can_manage],
-    ["stats",      "bi-bar-chart-line",           t('inventory.tabs.stats'),      nil,                                  nil,              can_manage],
-    ["export",     "bi-file-earmark-spreadsheet", t('inventory.tabs.export'),     nil,                                  nil,              can_manage]
+    [ "items",      "bi-table",                    t('inventory.tabs.items'),      @inventory.items_count, nil,              true ],
+    [ "discussion", "bi-chat-dots",                t('inventory.tabs.discussion'), @comments.size,         "chatTabCount",   true ],
+    [ "settings",   "bi-sliders",                  t('inventory.tabs.settings'),   nil,                    nil,              can_manage ],
+    [ "custom_id",  "bi-upc-scan",                 t('inventory.tabs.custom_id'),  nil,                    nil,              can_manage ],
+    [ "fields",     "bi-input-cursor-text",        t('inventory.tabs.fields'),     @custom_fields.size,    "fieldsTabCount", can_manage ],
+    [ "access",     "bi-shield-check",             t('inventory.tabs.access'),     nil,                    nil,              can_manage ],
+    [ "stats",      "bi-bar-chart-line",           t('inventory.tabs.stats'),      nil,                    nil,              can_manage ],
+    [ "export",     "bi-file-earmark-spreadsheet", t('inventory.tabs.export'),     nil,                    nil,              can_manage ]
   ]
 %>
 
@@ -101,7 +101,7 @@
               class: "nav-link text-nowrap #{'active' if @active_tab == key}" do %>
           <i class="bi <%= icon %>"></i>
           <span>
-            <%= label %><% unless count_val.nil? %> (<span<%= " id=\"#{count_id}\"".html_safe if count_id %>><%= count_val %></span>)<% end %>
+            <%= label %><% unless count_val.nil? %> (<%= content_tag(:span, count_val, id: count_id) %>)<% end %>
           </span>
         <% end %>
       </li>
@@ -170,7 +170,7 @@
                 </th>
               <% end %>
               <th class="<%= 'ps-4' unless current_user %>">ID</th>
-              <% @table_fields.each do |field| %><th><%= field[:name] %></th><% end %>
+              <% @dynamic_table_fields.each do |field| %><th><%= field.name %></th><% end %>
               <th><%= t('home.col_creator') %></th>
               <th class="text-end pe-4"><%= t('common.likes') %></th>
             </tr>
@@ -178,7 +178,7 @@
           <tbody data-inventory-workspace-target="itemsTableBody">
             <% if @items.empty? %>
               <tr>
-                <td colspan="<%= @table_fields.size + (current_user ? 4 : 3) %>" class="empty-state-box">
+                <td colspan="<%= @dynamic_table_fields.size + (current_user ? 4 : 3) %>" class="empty-state-box">
                   <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
                   <div class="fw-semibold text-body mb-1"><%= t('common.no_items') %></div>
                   <% if can_write %>
@@ -210,12 +210,12 @@
                   <td class="font-mono fw-semibold <%= 'ps-4' unless current_user %>">
                     <%= link_to item.custom_id, target_url, class: "badge bg-primary-subtle text-primary border border-primary-subtle text-decoration-underline font-mono px-3 py-1" %>
                   </td>
-                  <% @table_fields.each do |field| %>
-                    <% val = item.public_send(field[:value_column]) %>
+                  <% @dynamic_table_fields.each do |field| %>
+                    <% val = item.value_for(field) %>
                     <td>
-                      <% if field[:type] == "bool" %>
+                      <% if field.boolean? %>
                         <input type="checkbox" class="form-check-input" <%= "checked" if val %> disabled>
-                      <% elsif field[:type] == "link" && val.present? %>
+                      <% elsif field.link? && val.present? %>
                         <div class="d-flex align-items-center gap-2">
                           <% if val.to_s.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || val.to_s.include?("images.unsplash.com") || val.to_s.include?("res.cloudinary.com") || val.to_s.include?("iili.io") %>
                             <img src="<%= val %>" alt="" class="rounded-2 border object-fit-cover" style="width: 30px; height: 30px;" onerror="this.classList.add('d-none');">
@@ -224,10 +224,24 @@
                           <% end %>
                           <%= link_to truncate(val.to_s.split("/").last.presence || val.to_s, length: 24), val.to_s, target: "_blank", rel: "noopener noreferrer", class: "small text-decoration-underline fw-medium" %>
                         </div>
+                      <% elsif field.select_list? %>
+                        <% if val.present? %>
+                          <% if field == primary_link_field %>
+                            <%= link_to val, target_url, class: "badge bg-body-secondary text-body border rounded-pill px-2.5 py-1 text-decoration-underline fw-medium" %>
+                          <% else %>
+                            <span class="badge bg-body-secondary text-body border rounded-pill px-2.5 py-1 fw-medium"><%= val %></span>
+                          <% end %>
+                        <% else %>
+                          <span class="text-secondary">—</span>
+                        <% end %>
                       <% elsif field == primary_link_field %>
-                        <%= link_to (val.presence || "—"), target_url, class: "text-body text-decoration-underline fw-semibold" %>
+                        <%= link_to (field.numeric? ? format_numeric_value(val) : (val.presence || "—")), target_url, class: "text-body text-decoration-underline fw-semibold" %>
+                      <% elsif field.numeric? %>
+                        <span class="font-mono"><%= format_numeric_value(val) %></span>
+                      <% elsif field.field_type == "text" %>
+                        <span class="small"><%= val.present? ? truncate(val.to_s, length: 65) : "—" %></span>
                       <% else %>
-                        <span class="<%= 'font-mono' if field[:type] == 'int' %>"><%= val.presence || "—" %></span>
+                        <span><%= val.presence || "—" %></span>
                       <% end %>
                     </td>
                   <% end %>
@@ -260,10 +274,10 @@
           </span>
           <div class="btn-group btn-group-sm">
             <%= link_to t('common.prev_page'),
-                  inventory_path(@inventory, tab: "items", page: [@page - 1, 1].max),
+                  inventory_path(@inventory, tab: "items", page: [ @page - 1, 1 ].max),
                   class: "btn btn-outline-secondary #{'disabled' if @page <= 1}" %>
             <%= link_to t('common.next_page'),
-                  inventory_path(@inventory, tab: "items", page: [@page + 1, @total_pages].min),
+                  inventory_path(@inventory, tab: "items", page: [ @page + 1, @total_pages ].min),
                   class: "btn btn-outline-secondary #{'disabled' if @page >= @total_pages}" %>
           </div>
         </div>
@@ -289,7 +303,7 @@
       </div>
 
       <% if current_user %>
-        <%= form_with model: [@inventory, Comment.new],
+        <%= form_with model: [ @inventory, Comment.new ],
               data: { inventory_workspace_target: "commentForm", action: "submit->inventory-workspace#submitComment" },
               class: "p-3 rounded-3 border bg-body-tertiary" do |f| %>
           <div class="mb-2">
@@ -327,7 +341,7 @@
               <div class="col-sm-5">
                 <%= f.label :category_id, t('home.col_category'), class: "form-label modern-label" %>
                 <%= f.select :category_id,
-                      options_for_select(all_categories.map { |c| [localized_category_name(c), c.id] }, @inventory.category_id),
+                      options_for_select(all_categories.map { |c| [ localized_category_name(c), c.id ] }, @inventory.category_id),
                       {},
                       class: "form-select modern-input" %>
               </div>
@@ -485,18 +499,19 @@
     <div class="card p-4">
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
         <div>
-          <h2 class="h6 fw-bold mb-1"><%= t('inventory.fields_title') %></h2>
+          <h2 class="h6 fw-bold mb-1"><%= t('inventory.fields_title_unlimited', default: 'Custom Fields (Unlimited & Tunable)') %></h2>
           <p class="text-secondary small mb-0"><%= t('inventory.fields_subtitle') %></p>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <select data-inventory-workspace-target="fieldTypeSelect" class="form-select form-select-sm" style="width: 225px;">
-            <option value="string"><%= t('inventory.type_string') %></option>
-            <option value="text"><%= t('inventory.type_text') %></option>
-            <option value="int"><%= t('inventory.type_int') %></option>
-            <option value="link"><%= t('inventory.type_link') %></option>
-            <option value="bool"><%= t('inventory.type_bool') %></option>
+          <select data-inventory-workspace-target="fieldTypeSelect" class="form-select form-select-sm" style="width: 235px;">
+            <option value="string"><%= localized_field_type_label('string') %></option>
+            <option value="text"><%= localized_field_type_label('text') %></option>
+            <option value="int"><%= localized_field_type_label('int') %></option>
+            <option value="link"><%= localized_field_type_label('link') %></option>
+            <option value="bool"><%= localized_field_type_label('bool') %></option>
+            <option value="select"><%= localized_field_type_label('select') %></option>
           </select>
-          <button type="button" data-action="click->inventory-workspace#addFieldSlot" class="btn btn-sm btn-outline-primary fw-semibold rounded-3 px-3">
+          <button type="button" data-action="click->inventory-workspace#addDynamicField" class="btn btn-sm btn-outline-primary fw-semibold rounded-3 px-3">
             <i class="bi bi-plus-lg me-1"></i><%= t('inventory.add_field') %>
           </button>
         </div>
@@ -504,41 +519,199 @@
 
       <%= form_with url: update_fields_inventory_path(@inventory), method: :patch, data: { inventory_workspace_target: "autoSaveForm" } do %>
         <%= hidden_field_tag :lock_version, @inventory.lock_version, data: { inventory_workspace_target: "lockVersion" } %>
+        <%= hidden_field_tag :custom_fields_submitted, "1" %>
         <input type="hidden" name="force_overwrite" value="0" data-inventory-workspace-target="forceOverwriteInput">
 
-        <div data-inventory-workspace-target="fieldsList" class="d-flex flex-column gap-2 mb-3">
-          <% @inventory.all_custom_field_slots.each_with_index do |slot, idx| %>
-            <% localized_slot_label = "#{localized_field_type_label(slot[:type], slot[:type_label])} ##{slot[:index]}" %>
-            <div class="field-slot-row p-3 rounded-3 bg-body border shadow-sm <%= 'd-none' unless slot[:state] %>"
-                 data-field-type="<%= slot[:type] %>"
-                 data-default-name="<%= localized_slot_label %>"
-                 data-active="<%= slot[:state] ? 'true' : 'false' %>">
-              <input type="hidden" name="fields[<%= slot[:key] %>][position]" value="<%= idx + 1 %>" class="field-position-input">
-              <input type="hidden" name="fields[<%= slot[:key] %>][state]" value="<%= slot[:state] ? '1' : '0' %>" class="field-state-input">
+        <div data-inventory-workspace-target="fieldsList" class="d-flex flex-column gap-2.5 mb-3">
+          <div data-inventory-workspace-target="fieldsEmptyState" class="text-center text-secondary small py-4 rounded-3 border bg-body-tertiary <%= 'd-none' if @custom_fields.any? %>">
+            <i class="bi bi-input-cursor-text d-block fs-4 mb-1 opacity-75"></i>
+            <%= t('inventory.no_fields_yet', default: 'No custom fields yet. Select a field type above and click Add Field.') %>
+          </div>
+
+          <% @custom_fields.each_with_index do |field, idx| %>
+            <% is_text = field.text_based? %>
+            <% is_num  = field.numeric? %>
+            <% is_sel  = field.select_list? %>
+            <div class="dynamic-field-row p-3 rounded-3 bg-body border shadow-sm">
+              <input type="hidden" name="custom_fields[<%= idx %>][id]" value="<%= field.id %>" class="field-id-input">
+              <input type="hidden" name="custom_fields[<%= idx %>][position]" value="<%= idx + 1 %>" class="field-position-input">
 
               <div class="row g-2 align-items-center">
                 <div class="col-12 col-lg-3 d-flex align-items-center gap-2">
                   <span class="field-drag-handle text-secondary px-1 flex-shrink-0" style="cursor: grab;"><i class="bi bi-grip-vertical"></i></span>
-                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono text-truncate w-100 py-1.5"><%= localized_slot_label %></span>
+                  <select name="custom_fields[<%= idx %>][field_type]"
+                          class="form-select form-select-sm field-type-select"
+                          data-action="change->inventory-workspace#onDynamicFieldTypeChange">
+                    <% CustomField::FIELD_TYPES.each do |type_key, fallback| %>
+                      <option value="<%= type_key %>" <%= "selected" if field.field_type == type_key %>><%= localized_field_type_label(type_key, fallback) %></option>
+                    <% end %>
+                  </select>
                 </div>
                 <div class="col-12 col-md-5 col-lg-3">
-                  <input type="text" name="fields[<%= slot[:key] %>][name]" value="<%= slot[:name] %>" class="form-control form-control-sm fw-semibold" placeholder="<%= t('inventory.field_title_placeholder') %>">
+                  <input type="text"
+                         name="custom_fields[<%= idx %>][name]"
+                         value="<%= field.name %>"
+                         class="form-control form-control-sm fw-semibold field-name-input"
+                         placeholder="<%= t('inventory.field_title_placeholder') %>"
+                         required>
                 </div>
                 <div class="col-12 col-md-7 col-lg-3">
-                  <input type="text" name="fields[<%= slot[:key] %>][desc]" value="<%= slot[:description] %>" class="form-control form-control-sm" placeholder="<%= t('inventory.field_desc_placeholder') %>">
+                  <input type="text"
+                         name="custom_fields[<%= idx %>][description]"
+                         value="<%= field.description %>"
+                         class="form-control form-control-sm"
+                         placeholder="<%= t('inventory.field_desc_placeholder') %>">
                 </div>
                 <div class="col-12 col-lg-3 d-flex align-items-center justify-content-between justify-content-lg-end gap-2">
                   <div class="form-check m-0">
-                    <input type="hidden" name="fields[<%= slot[:key] %>][show_in_table]" value="0">
-                    <input type="checkbox" name="fields[<%= slot[:key] %>][show_in_table]" value="1" class="form-check-input" id="tbl_<%= slot[:key] %>" <%= "checked" if slot[:show_in_table] %>>
-                    <label class="form-check-label small text-nowrap" for="tbl_<%= slot[:key] %>"><%= t('inventory.show_in_table') %></label>
+                    <input type="hidden" name="custom_fields[<%= idx %>][show_in_table]" value="0">
+                    <input type="checkbox"
+                           name="custom_fields[<%= idx %>][show_in_table]"
+                           value="1"
+                           class="form-check-input field-show-checkbox"
+                           id="tbl_cf_<%= idx %>"
+                           <%= "checked" if field.show_in_table? %>>
+                    <label class="form-check-label small text-nowrap field-show-label" for="tbl_cf_<%= idx %>"><%= t('inventory.show_in_table') %></label>
                   </div>
-                  <button type="button" data-action="click->inventory-workspace#removeFieldSlot" class="btn btn-sm btn-outline-danger rounded-3 flex-shrink-0" title="<%= t('common.delete') %>"><i class="bi bi-x-lg"></i></button>
+                  <button type="button"
+                          data-action="click->inventory-workspace#removeDynamicField"
+                          class="btn btn-sm btn-outline-danger rounded-3 flex-shrink-0"
+                          title="<%= t('common.delete') %>">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="tuning-strip mt-2.5 pt-2.5 border-top <%= 'd-none' unless is_text || is_num || is_sel %>">
+                <div class="tuning-text-group row g-2 <%= 'd-none' unless is_text %>">
+                  <div class="col-6 col-md-3">
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_length', default: 'Min length') %></label>
+                    <input type="number" min="0" max="10000" name="custom_fields[<%= idx %>][min_length]" value="<%= field.min_length %>" class="form-control form-control-sm font-mono" placeholder="0">
+                  </div>
+                  <div class="col-6 col-md-3">
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_length', default: 'Max length') %></label>
+                    <input type="number" min="1" max="10000" name="custom_fields[<%= idx %>][max_length]" value="<%= field.max_length %>" class="form-control form-control-sm font-mono" placeholder="255">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.regex_pattern', default: 'Regex validator (optional)') %></label>
+                    <input type="text" name="custom_fields[<%= idx %>][regex_pattern]" value="<%= field.regex_pattern %>" class="form-control form-control-sm font-mono" placeholder="^[A-Z0-9-]+$">
+                  </div>
+                </div>
+
+                <div class="tuning-numeric-group row g-2 <%= 'd-none' unless is_num %>">
+                  <div class="col-6 col-md-4">
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_value', default: 'Min value') %></label>
+                    <input type="number" step="any" name="custom_fields[<%= idx %>][min_value]" value="<%= field.min_value.present? ? format_numeric_value(field.min_value) : '' %>" class="form-control form-control-sm font-mono" placeholder="0">
+                  </div>
+                  <div class="col-6 col-md-4">
+                    <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_value', default: 'Max value') %></label>
+                    <input type="number" step="any" name="custom_fields[<%= idx %>][max_value]" value="<%= field.max_value.present? ? format_numeric_value(field.max_value) : '' %>" class="form-control form-control-sm font-mono" placeholder="10000">
+                  </div>
+                </div>
+
+                <div class="tuning-select-group <%= 'd-none' unless is_sel %>">
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.select_options_label', default: 'List options (comma or newline separated)') %></label>
+                  <input type="text"
+                         name="custom_fields[<%= idx %>][select_options]"
+                         value="<%= field.parsed_select_options.join(', ') %>"
+                         class="form-control form-control-sm field-select-options-input"
+                         placeholder="Desktop, Laptop, Table">
                 </div>
               </div>
             </div>
           <% end %>
         </div>
+
+        <template id="dynamicFieldRowTemplate">
+          <div class="dynamic-field-row p-3 rounded-3 bg-body border shadow-sm">
+            <input type="hidden" name="custom_fields[__IDX__][id]" value="" class="field-id-input">
+            <input type="hidden" name="custom_fields[__IDX__][position]" value="1" class="field-position-input">
+
+            <div class="row g-2 align-items-center">
+              <div class="col-12 col-lg-3 d-flex align-items-center gap-2">
+                <span class="field-drag-handle text-secondary px-1 flex-shrink-0" style="cursor: grab;"><i class="bi bi-grip-vertical"></i></span>
+                <select name="custom_fields[__IDX__][field_type]"
+                        class="form-select form-select-sm field-type-select"
+                        data-action="change->inventory-workspace#onDynamicFieldTypeChange">
+                  <% CustomField::FIELD_TYPES.each do |type_key, fallback| %>
+                    <option value="<%= type_key %>"><%= localized_field_type_label(type_key, fallback) %></option>
+                  <% end %>
+                </select>
+              </div>
+              <div class="col-12 col-md-5 col-lg-3">
+                <input type="text"
+                       name="custom_fields[__IDX__][name]"
+                       value=""
+                       class="form-control form-control-sm fw-semibold field-name-input"
+                       placeholder="<%= t('inventory.field_title_placeholder') %>"
+                       required>
+              </div>
+              <div class="col-12 col-md-7 col-lg-3">
+                <input type="text"
+                       name="custom_fields[__IDX__][description]"
+                       value=""
+                       class="form-control form-control-sm"
+                       placeholder="<%= t('inventory.field_desc_placeholder') %>">
+              </div>
+              <div class="col-12 col-lg-3 d-flex align-items-center justify-content-between justify-content-lg-end gap-2">
+                <div class="form-check m-0">
+                  <input type="hidden" name="custom_fields[__IDX__][show_in_table]" value="0">
+                  <input type="checkbox"
+                         name="custom_fields[__IDX__][show_in_table]"
+                         value="1"
+                         class="form-check-input field-show-checkbox"
+                         id="tbl_cf___IDX__"
+                         checked>
+                  <label class="form-check-label small text-nowrap field-show-label" for="tbl_cf___IDX__"><%= t('inventory.show_in_table') %></label>
+                </div>
+                <button type="button"
+                        data-action="click->inventory-workspace#removeDynamicField"
+                        class="btn btn-sm btn-outline-danger rounded-3 flex-shrink-0"
+                        title="<%= t('common.delete') %>">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="tuning-strip mt-2.5 pt-2.5 border-top d-none">
+              <div class="tuning-text-group row g-2 d-none">
+                <div class="col-6 col-md-3">
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_length', default: 'Min length') %></label>
+                  <input type="number" min="0" max="10000" name="custom_fields[__IDX__][min_length]" value="" class="form-control form-control-sm font-mono" placeholder="0">
+                </div>
+                <div class="col-6 col-md-3">
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_length', default: 'Max length') %></label>
+                  <input type="number" min="1" max="10000" name="custom_fields[__IDX__][max_length]" value="" class="form-control form-control-sm font-mono" placeholder="255">
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.regex_pattern', default: 'Regex validator (optional)') %></label>
+                  <input type="text" name="custom_fields[__IDX__][regex_pattern]" value="" class="form-control form-control-sm font-mono" placeholder="^[A-Z0-9-]+$">
+                </div>
+              </div>
+
+              <div class="tuning-numeric-group row g-2 d-none">
+                <div class="col-6 col-md-4">
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.min_value', default: 'Min value') %></label>
+                  <input type="number" step="any" name="custom_fields[__IDX__][min_value]" value="" class="form-control form-control-sm font-mono" placeholder="0">
+                </div>
+                <div class="col-6 col-md-4">
+                  <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.max_value', default: 'Max value') %></label>
+                  <input type="number" step="any" name="custom_fields[__IDX__][max_value]" value="" class="form-control form-control-sm font-mono" placeholder="10000">
+                </div>
+              </div>
+
+              <div class="tuning-select-group d-none">
+                <label class="form-label text-secondary mb-1" style="font-size: 0.72rem;"><%= t('inventory.select_options_label', default: 'List options (comma or newline separated)') %></label>
+                <input type="text"
+                       name="custom_fields[__IDX__][select_options]"
+                       value=""
+                       class="form-control form-control-sm field-select-options-input"
+                       placeholder="Desktop, Laptop, Table">
+              </div>
+            </div>
+          </div>
+        </template>
+
         <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-4 shadow-sm"><%= t('common.save') %></button>
       <% end %>
     </div>
@@ -555,7 +728,10 @@
             <p class="text-secondary small mb-0"><%= t('inventory.public_access') %></p>
           </div>
           <div class="form-check form-switch m-0">
-            <%= f.check_box :is_public, class: "form-check-input fs-4", id: "accessTabPublicSwitch" %>
+            <%= f.check_box :is_public,
+                  class: "form-check-input fs-4",
+                  id: "accessTabPublicSwitch",
+                  data: { action: "change->inventory-workspace#saveImmediately" } %>
           </div>
         </div>
       <% end %>
@@ -563,7 +739,10 @@
 
     <div class="card p-4 mb-4">
       <h2 class="h6 fw-bold mb-2"><%= t('inventory.grant_access_title') %></h2>
-      <%= form_with url: grant_access_inventory_path(@inventory), method: :post, class: "d-flex flex-wrap gap-2 align-items-start" do %>
+      <%= form_with url: grant_access_inventory_path(@inventory),
+            method: :post,
+            data: { action: "submit->inventory-workspace#flushBeforeFormSubmit" },
+            class: "d-flex flex-wrap gap-2 align-items-start" do %>
         <div class="flex-grow-1" style="max-width: 420px;">
           <select name="user_identifier" data-inventory-workspace-target="userAccessSelect" placeholder="<%= t('inventory.grant_access_placeholder') %>" required></select>
         </div>
@@ -662,9 +841,9 @@
                   <% @statistics[:numeric].each do |stat| %>
                     <tr>
                       <td class="fw-semibold"><%= stat[:name] %></td>
-                      <td class="text-primary fw-bold"><%= stat[:avg] %></td>
-                      <td><%= stat[:min] %></td>
-                      <td><%= stat[:max] %></td>
+                      <td class="text-primary fw-bold"><%= format_numeric_value(stat[:avg]) %></td>
+                      <td><%= format_numeric_value(stat[:min]) %></td>
+                      <td><%= format_numeric_value(stat[:max]) %></td>
                     </tr>
                   <% end %>
                 </tbody>
