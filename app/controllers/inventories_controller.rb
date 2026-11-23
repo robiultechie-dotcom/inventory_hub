@@ -41,8 +41,8 @@ class InventoriesController < ApplicationController
     @comments = @inventory.comments.includes(:user)
 
     if @inventory.manageable_by?(current_user)
-      sort_col = params[:access_sort] == "email" ? "users.email ASC" : "users.name ASC"
-      @access_records = @inventory.inventory_accesses.includes(:user).references(:user).order(Arel.sql(sort_col))
+      sort_col = params[:access_sort] == "email" ? "LOWER(users.email) ASC" : "LOWER(users.name) ASC"
+      @access_records = @inventory.inventory_accesses.joins(:user).includes(:user).order(Arel.sql(sort_col))
       @statistics     = @inventory.statistics if @active_tab == "stats"
     end
   end

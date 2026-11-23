@@ -14,13 +14,18 @@ class UsersController < ApplicationController
       sort:        params[:owned_sort]
     )
 
+    # Uses EXISTS subquery instead of LEFT JOIN + DISTINCT so PostgreSQL safely supports ORDER BY LOWER(title)
     writable_base = if @user.admin?
                       Inventory.where.not(creator_id: @user.id)
     else
-                      Inventory.left_outer_joins(:inventory_accesses)
-                               .where.not(creator_id: @user.id)
-                               .where("inventories.is_public = TRUE OR inventory_accesses.user_id = ?", @user.id)
-                               .distinct
+                      Inventory.where.not(creator_id: @user.id)
+                               .where(
+                                 "inventories.is_public = TRUE OR EXISTS (" \
+                                 "SELECT 1 FROM inventory_accesses " \
+                                 "WHERE inventory_accesses.inventory_id = inventories.id " \
+                                 "AND inventory_accesses.user_id = ?)",
+                                 @user.id
+                               )
     end
 
     @writable_inventories = filter_and_sort(
@@ -42,7 +47,7 @@ class UsersController < ApplicationController
     like = "%#{User.sanitize_sql_like(q)}%"
     scope = User.where(blocked: false)
                 .where("name ILIKE :q OR email ILIKE :q", q: like)
-                .order(:name)
+                .order(Arel.sql("LOWER(name) ASC"))
                 .limit(10)
 
     render json: scope.map { |u| { name: u.name, email: u.email, label: "#{u.name} (#{u.email})" } }
@@ -52,10 +57,7 @@ class UsersController < ApplicationController
 
   def filter_and_sort(scope, query:, category_id:, sort:)
     rel = scope
-    if query.present?
-      like = "%#{Inventory.sanitize_sql_like(query.to_s.strip)}%"
-      rel = rel.where("inventories.title ILIKE :q OR inventories.description ILIKE :q", q: like)
-    end
+    rel = rel.merge(Inventory.full_text_search(query)) if query.present?
     rel = rel.where(category_id: category_id) if category_id.present?
 
     case sort

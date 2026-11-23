@@ -8,11 +8,11 @@ class SearchController < ApplicationController
     @tag   = params[:tag].to_s.strip.downcase
 
     @inventories = if @tag.present?
-                     Inventory.joins(:tags)
-                              .where("LOWER(tags.name) = ?", @tag)
-                              .includes(:category, :creator, :tags)
-                              .order(created_at: :desc)
-                              .distinct
+                     Inventory.where(
+                       "EXISTS (SELECT 1 FROM inventory_tags INNER JOIN tags ON tags.id = inventory_tags.tag_id " \
+                       "WHERE inventory_tags.inventory_id = inventories.id AND LOWER(tags.name) = ?)",
+                       @tag
+                     ).includes(:category, :creator, :tags).order(created_at: :desc)
     elsif @query.present?
                      Inventory.full_text_search(@query)
                               .includes(:category, :creator, :tags)
@@ -37,6 +37,8 @@ class SearchController < ApplicationController
     else
                         Set.new
     end
+
+    @writable_inventory_ids = preload_writable_inventory_ids(@items)
   end
 
   def suggestions
@@ -48,13 +50,21 @@ class SearchController < ApplicationController
     end
 
     items = if q.present?
-              Item.full_text_search(q).includes(:inventory).limit(5)
+              Item.full_text_search(q).includes(:inventory).limit(5).to_a
     else
-              Item.none
+              []
     end
+    writable_ids = preload_writable_inventory_ids(items)
 
     tags = Tag.popular
-    tags = tags.where("name ILIKE ?", "#{Tag.sanitize_sql_like(q.downcase)}%") if q.present?
+    if q.present?
+      tsq = Inventory.build_fts_query(q)
+      if tsq.present?
+        tags = tags.where("to_tsvector('simple', coalesce(tags.name, '')) @@ to_tsquery('simple', ?)", tsq)
+      else
+        tags = tags.where("LOWER(tags.name) LIKE ?", "#{Tag.sanitize_sql_like(q.downcase)}%")
+      end
+    end
     tags = tags.limit(5)
 
     render json: {
@@ -68,8 +78,9 @@ class SearchController < ApplicationController
         }
       end,
       items: items.map do |item|
+        item_url = writable_ids.include?(item.inventory_id) ? edit_inventory_item_path(item.inventory, item) : inventory_item_path(item.inventory, item)
         {
-          url:             inventory_item_path(item.inventory, item),
+          url:             item_url,
           custom_id:       item.custom_id,
           label:           item.primary_label,
           inventory_title: item.inventory.title
@@ -83,5 +94,28 @@ class SearchController < ApplicationController
         }
       end
     }
+  end
+
+  private
+
+  # Batch-resolves write permissions in at most 1 query (prevents N+1 queries inside view loops)
+  def preload_writable_inventory_ids(items_list)
+    return Set.new if current_user.nil? || items_list.empty?
+
+    inv_ids = items_list.map(&:inventory_id).uniq
+    return inv_ids.to_set if current_user.admin?
+
+    direct_ids = items_list.map(&:inventory).compact.select do |inv|
+      inv.is_public? || inv.creator_id == current_user.id
+    end.map(&:id).uniq
+
+    remaining_ids = inv_ids - direct_ids
+    granted_ids = if remaining_ids.any?
+                    InventoryAccess.where(user_id: current_user.id, inventory_id: remaining_ids).pluck(:inventory_id)
+    else
+                    []
+    end
+
+    (direct_ids + granted_ids).to_set
   end
 end

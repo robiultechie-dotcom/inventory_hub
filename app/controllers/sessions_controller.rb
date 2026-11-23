@@ -37,7 +37,6 @@ class SessionsController < ApplicationController
 
     if user && !user.blocked?
       user.confirm_email!
-      user.update!(admin: true) if designated_admin_email?(user.email) && !user.admin?
       establish_secure_session!(user)
       redirect_to root_path, notice: t("flashes.email_confirmed", name: user.name)
     else
@@ -97,7 +96,6 @@ class SessionsController < ApplicationController
       user = User.find_by(email: params[:email].to_s.strip.downcase)
       return nil unless user&.valid_password?(params[:password])
 
-      user.update!(admin: true) if !user.email_unconfirmed? && designated_admin_email?(user.email) && !user.admin?
       user
     end
   end
@@ -160,13 +158,10 @@ class SessionsController < ApplicationController
     email    = auth.dig("info", "email").to_s.strip.downcase
     name     = auth.dig("info", "name").to_s.strip.presence || "User"
 
-    is_designated_admin = designated_admin_email?(email)
-
     user = User.find_by(provider: provider, uid: uid) || (email.present? ? User.find_by(email: email) : nil)
     if user
-      attrs = { provider: provider, uid: uid }
-      attrs[:admin] = true if is_designated_admin && !user.admin?
-      user.update!(attrs)
+      # Do NOT re-promote existing users so admin self-demotion is strictly honored (Section 3)
+      user.update!(provider: provider, uid: uid)
       user
     else
       new_user = User.new(
@@ -174,7 +169,7 @@ class SessionsController < ApplicationController
         email:    email.presence || "#{uid}@#{provider}.oauth",
         provider: provider,
         uid:      uid,
-        admin:    is_designated_admin
+        admin:    designated_admin_email?(email)
       )
       new_user.password = SecureRandom.hex(20)
       new_user.save!

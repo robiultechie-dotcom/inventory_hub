@@ -12,17 +12,16 @@ class ItemsController < ApplicationController
 
   def new
     @active_fields = @inventory.active_custom_fields
-    @initial_generated_id = CustomIdGenerator.new(@inventory).generate(preview: false)
-    @item = @inventory.items.build(custom_id: @initial_generated_id)
+    generated_id = CustomIdGenerator.new(@inventory).generate(preview: false)
+    @item = @inventory.items.build(custom_id: generated_id)
   end
 
   def create
     @active_fields = @inventory.active_custom_fields
     submitted_attrs = item_params.to_h
-    submitted_id = submitted_attrs["custom_id"].to_s
-    manually_edited = submitted_id.present? && submitted_id != params[:initial_generated_id].to_s
 
-    unless manually_edited
+    # Preserve visible generated/edited Custom ID so parallel duplicates trigger DB conflict rejection (Section 6)
+    if submitted_attrs["custom_id"].to_s.strip.blank?
       submitted_attrs["custom_id"] = CustomIdGenerator.new(@inventory).generate(preview: false, timestamp: Time.current)
     end
 
@@ -32,12 +31,10 @@ class ItemsController < ApplicationController
     if @item.save
       redirect_to inventory_path(@inventory, tab: "items"), notice: t("flashes.item_created")
     else
-      @initial_generated_id = manually_edited ? "" : @item.custom_id
       render :new, status: :unprocessable_entity
     end
   rescue ActiveRecord::RecordNotUnique
     @item.errors.add(:custom_id, :taken)
-    @initial_generated_id = manually_edited ? "" : @item.custom_id
     render :new, status: :unprocessable_entity
   end
 

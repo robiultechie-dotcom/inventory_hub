@@ -26,11 +26,18 @@ class Item < ApplicationRecord
   validate :enforce_custom_id_format
   validate :validate_custom_link_fields
 
+  def self.build_fts_query(query)
+    tokens = query.to_s.scan(/[[:alnum:]]+/).map(&:downcase).reject(&:blank?).first(8)
+    return nil if tokens.empty?
+
+    tokens.map { |token| "#{token}:*" }.join(" & ")
+  end
+
+  # Section 14: Native PostgreSQL GIN-indexed full-text search across item IDs & field values
   scope :full_text_search, lambda { |query|
     q = query.to_s.strip
     return none if q.blank?
 
-    sanitized_like = "%#{sanitize_sql_like(q)}%"
     searchable_expr = [
       "coalesce(items.custom_id, '')",
       "coalesce(items.custom_string1_val, '')",
@@ -41,18 +48,20 @@ class Item < ApplicationRecord
       "coalesce(items.custom_text3_val, '')"
     ].join(" || ' ' || ")
 
-    where(
-      "to_tsvector('simple', #{searchable_expr}) @@ plainto_tsquery('simple', :q) " \
-      "OR items.custom_id ILIKE :like " \
-      "OR items.custom_string1_val ILIKE :like " \
-      "OR items.custom_string2_val ILIKE :like " \
-      "OR items.custom_string3_val ILIKE :like " \
-      "OR items.custom_text1_val ILIKE :like " \
-      "OR items.custom_text2_val ILIKE :like " \
-      "OR items.custom_text3_val ILIKE :like",
-      q: q,
-      like: sanitized_like
-    )
+    tsq = build_fts_query(q)
+    if tsq.present?
+      where(
+        "to_tsvector('simple', #{searchable_expr}) @@ to_tsquery('simple', :tsq) " \
+        "OR EXISTS (" \
+          "SELECT 1 FROM item_field_values " \
+          "WHERE item_field_values.item_id = items.id " \
+          "AND to_tsvector('simple', coalesce(item_field_values.string_value, '') || ' ' || coalesce(item_field_values.text_value, '')) @@ to_tsquery('simple', :tsq)" \
+        ")",
+        tsq: tsq
+      )
+    else
+      where("to_tsvector('simple', #{searchable_expr}) @@ plainto_tsquery('simple', :q)", q: q)
+    end
   }
 
   def primary_label

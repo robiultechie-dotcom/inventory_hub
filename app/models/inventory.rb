@@ -25,7 +25,10 @@ class Inventory < ApplicationRecord
   validates :image_url,
             allow_blank: true,
             length: { maximum: 500 },
-            format: { with: /\Ahttps?:\/\/\S+\z/i, message: "must be a valid HTTP/HTTPS URL" }
+            format: {
+              with: /\Ahttps?:\/\/\S+\z/i,
+              message: ->(_obj, _data) { I18n.t("items.invalid_link_url", default: "must be a valid http:// or https:// URL") }
+            }
 
   before_create :set_default_custom_id_config
   after_save :persist_pending_tags
@@ -33,17 +36,40 @@ class Inventory < ApplicationRecord
   scope :latest_first, -> { includes(:category, :creator, :tags).order(created_at: :desc) }
   scope :top_popular, ->(limit_count = 5) { includes(:category, :creator).order(items_count: :desc, created_at: :desc).limit(limit_count) }
 
+  def self.build_fts_query(query)
+    tokens = query.to_s.scan(/[[:alnum:]]+/).map(&:downcase).reject(&:blank?).first(8)
+    return nil if tokens.empty?
+
+    tokens.map { |token| "#{token}:*" }.join(" & ")
+  end
+
+  # Section 14: Native PostgreSQL GIN-indexed full-text search across title, description, tags & comments
   scope :full_text_search, lambda { |query|
     q = query.to_s.strip
     return none if q.blank?
 
-    sanitized_like = "%#{sanitize_sql_like(q)}%"
-    where(
-      "to_tsvector('simple', coalesce(inventories.title, '') || ' ' || coalesce(inventories.description, '')) @@ plainto_tsquery('simple', :q) " \
-      "OR inventories.title ILIKE :like OR inventories.description ILIKE :like",
-      q: q,
-      like: sanitized_like
-    )
+    tsq = build_fts_query(q)
+    if tsq.present?
+      where(
+        "to_tsvector('simple', coalesce(inventories.title, '') || ' ' || coalesce(inventories.description, '')) @@ to_tsquery('simple', :tsq) " \
+        "OR EXISTS (" \
+          "SELECT 1 FROM inventory_tags INNER JOIN tags ON tags.id = inventory_tags.tag_id " \
+          "WHERE inventory_tags.inventory_id = inventories.id " \
+          "AND to_tsvector('simple', coalesce(tags.name, '')) @@ to_tsquery('simple', :tsq)" \
+        ") " \
+        "OR EXISTS (" \
+          "SELECT 1 FROM comments " \
+          "WHERE comments.inventory_id = inventories.id " \
+          "AND to_tsvector('simple', coalesce(comments.body, '')) @@ to_tsquery('simple', :tsq)" \
+        ")",
+        tsq: tsq
+      )
+    else
+      where(
+        "to_tsvector('simple', coalesce(inventories.title, '') || ' ' || coalesce(inventories.description, '')) @@ plainto_tsquery('simple', :q)",
+        q: q
+      )
+    end
   }
 
   def manageable_by?(user)
@@ -142,9 +168,9 @@ class Inventory < ApplicationRecord
                         avg_val, min_val, max_val = row[idx * 3, 3]
                         {
                           name: f[:name],
-                          avg:  avg_val ? avg_val.to_f.round(2) : 0,
-                          min:  min_val || 0,
-                          max:  max_val || 0
+                          avg:  avg_val ? avg_val.to_f.round(2) : "—",
+                          min:  min_val.nil? ? "—" : min_val,
+                          max:  max_val.nil? ? "—" : max_val
                         }
                       end
     else

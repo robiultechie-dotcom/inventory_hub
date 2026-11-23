@@ -95,7 +95,7 @@
             </tr>
           <% else %>
             <% @items.each do |item| %>
-              <% item_url = item.inventory.writable_by?(current_user) ? edit_inventory_item_path(item.inventory, item) : inventory_item_path(item.inventory, item) %>
+              <% item_url = @writable_inventory_ids.include?(item.inventory_id) ? edit_inventory_item_path(item.inventory, item) : inventory_item_path(item.inventory, item) %>
               <% like_url = toggle_like_inventory_item_path(item.inventory, item) %>
               <% liked    = @liked_item_ids.include?(item.id) %>
               <tr data-url="<%= item_url %>" data-like-url="<%= like_url %>" data-likes="<%= item.likes_count %>">

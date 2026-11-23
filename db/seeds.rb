@@ -72,11 +72,6 @@ ActiveRecord::Base.transaction do
   Inventory.find_each { |inv| Inventory.reset_counters(inv.id, :items) }
   Tag.find_each       { |tag| Tag.reset_counters(tag.id, :inventory_tags) }
 
-  if ENV["ADMIN_EMAIL"].present?
-    admin_user = User.find_by("LOWER(email) = ?", ENV["ADMIN_EMAIL"].strip.downcase)
-    admin_user&.update_columns(admin: true, blocked: false)
-  end
-
   active_tags = Tag.joins(:inventory_tags).distinct.count
   raise "Seed integrity error: expected >= 4 categories, got #{Category.count}"   if Category.count < 4
   raise "Seed integrity error: expected >= 6 inventories, got #{Inventory.count}" if Inventory.count < 6
