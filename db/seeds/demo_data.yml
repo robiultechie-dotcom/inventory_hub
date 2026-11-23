@@ -24,7 +24,7 @@ users:
     name: "Sophia Chen"
     email: "sophia@inventoryhub.io"
     admin: false
-    provider: "facebook"
+    provider: "github"
 
 inventories:
   - title: "Semiconductor & Radio Components Vault"

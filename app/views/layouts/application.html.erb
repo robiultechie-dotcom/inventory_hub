@@ -157,7 +157,7 @@
 
     <%
       google_configured   = ENV["GOOGLE_CLIENT_ID"].present? && ENV["GOOGLE_CLIENT_SECRET"].present?
-      facebook_configured = ENV["FACEBOOK_APP_ID"].present? && ENV["FACEBOOK_APP_SECRET"].present?
+      github_configured = ENV["GITHUB_CLIENT_ID"].present? && ENV["GITHUB_CLIENT_SECRET"].present?
     %>
     <div class="modal fade" id="authModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
@@ -195,23 +195,23 @@
                 <% end %>
               </div>
               <div class="col-6">
-                <% if facebook_configured %>
-                  <%= button_to "/auth/facebook", method: :post, form: { data: { turbo: false } },
+                <% if github_configured %>
+                  <%= button_to "/auth/github", method: :post, form: { data: { turbo: false } },
                         class: "btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 py-2 rounded-3" do %>
-                    <i class="bi bi-facebook text-primary"></i>
-                    <span class="fw-semibold small">Facebook</span>
+                    <i class="bi bi-github"></i>
+                    <span class="fw-semibold small">GitHub</span>
                   <% end %>
                 <% else %>
                   <button type="button" disabled title="<%= t('auth.oauth_not_configured') %>"
                           class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 py-2 rounded-3 opacity-50">
-                    <i class="bi bi-facebook text-primary"></i>
-                    <span class="fw-semibold small">Facebook</span>
+                    <i class="bi bi-github"></i>
+                    <span class="fw-semibold small">GitHub</span>
                   </button>
                 <% end %>
               </div>
             </div>
 
-            <% unless google_configured && facebook_configured %>
+            <% unless google_configured && github_configured %>
               <div class="text-secondary text-center mb-3" style="font-size: 0.72rem;">
                 <i class="bi bi-info-circle me-1"></i><%= t('auth.oauth_not_configured') %>
               </div>

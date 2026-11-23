@@ -11,13 +11,12 @@ Rails.application.config.middleware.use OmniAuth::Builder do
              }
   end
 
-  if ENV["FACEBOOK_APP_ID"].present? && ENV["FACEBOOK_APP_SECRET"].present?
-    provider :facebook,
-             ENV.fetch("FACEBOOK_APP_ID").strip,
-             ENV.fetch("FACEBOOK_APP_SECRET").strip,
+  if ENV["GITHUB_CLIENT_ID"].present? && ENV["GITHUB_CLIENT_SECRET"].present?
+    provider :github,
+             ENV.fetch("GITHUB_CLIENT_ID").strip,
+             ENV.fetch("GITHUB_CLIENT_SECRET").strip,
              {
-               scope: "email,public_profile",
-               info_fields: "email,name"
+               scope: "user:email"
              }
   end
 end
