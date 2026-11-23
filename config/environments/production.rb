@@ -27,7 +27,7 @@ Rails.application.configure do
   config.action_mailer.perform_deliveries = true
   config.action_mailer.raise_delivery_errors = true
 
-  if ENV["BREVO_API_KEY"].blank? && ENV["SMTP_USERNAME"].present? && ENV["SMTP_PASSWORD"].present?
+  if ENV["GOOGLE_MAILER_URL"].blank? && ENV["SMTP_USERNAME"].present? && ENV["SMTP_PASSWORD"].present?
     config.action_mailer.delivery_method = :smtp
     config.action_mailer.smtp_settings = {
       address:              ENV.fetch("SMTP_ADDRESS", "smtp.gmail.com").strip,
