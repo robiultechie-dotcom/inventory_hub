@@ -4,7 +4,7 @@ class ApplicationController < ActionController::Base
   allow_browser versions: :modern
 
   before_action :set_locale
-  helper_method :current_user, :current_theme, :all_categories, :server_upload_enabled?
+  helper_method :current_user, :current_theme, :all_categories, :signed_cloud_upload_enabled?
 
   private
 
@@ -33,10 +33,8 @@ class ApplicationController < ActionController::Base
     @all_categories ||= Category.order(:name).to_a
   end
 
-  def server_upload_enabled?
-    ENV["CLOUDINARY_URL"].present? ||
-      (ENV["CLOUDINARY_CLOUD_NAME"].present? && ENV["CLOUDINARY_UPLOAD_PRESET"].present?) ||
-      ENV["FREEIMAGE_API_KEY"].present?
+  def signed_cloud_upload_enabled?
+    ENV["CLOUDINARY_URL"].present?
   end
 
   def authenticate_user!

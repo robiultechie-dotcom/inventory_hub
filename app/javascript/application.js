@@ -1,11 +1,7 @@
 import "@hotwired/turbo-rails"
 import "controllers"
 
-if (window.Dropzone) {
-  window.Dropzone.autoDiscover = false
-}
-
-// Fix F2: Implement global toggleItemLike used by TableSelectionController toolbar
+// Global item like toggle used by TableSelectionController toolbar
 window.toggleItemLike = async function(likeUrl, rowElement = null) {
   if (!likeUrl) return null
 
@@ -52,7 +48,8 @@ window.toggleItemLike = async function(likeUrl, rowElement = null) {
   return data
 }
 
-// Zero-dependency Native Cloud Uploader: Direct Cloudinary OR authenticated server-side /uploads
+// Direct-to-Cloudinary Cloud Uploader (Signed via /uploads/signature OR Unsigned Preset)
+// Zero image bytes ever touch the Rails web server (Sections 14 & 15).
 window.mountCloudDropzone = function(element, options = {}) {
   if (!element) return null
   if (element.dropzone && typeof element.dropzone.destroy === "function") {
@@ -64,8 +61,8 @@ window.mountCloudDropzone = function(element, options = {}) {
     ? '<i class="bi bi-cloud-arrow-up fs-4 d-block mb-1 text-primary"></i><span class="small fw-medium d-block">Arrastra una imagen aquí o haz clic para subir</span><span class="text-secondary" style="font-size: 0.75rem;">JPG, PNG, WebP o GIF (máx. 5 MB)</span>'
     : '<i class="bi bi-cloud-arrow-up fs-4 d-block mb-1 text-primary"></i><span class="small fw-medium d-block">Drop image here or click to upload</span><span class="text-secondary" style="font-size: 0.75rem;">JPG, PNG, WebP, or GIF (max 5 MB)</span>'
   const uploadingHtml = isEs
-    ? '<div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div><span class="small fw-medium d-block">Subiendo imagen a la nube...</span>'
-    : '<div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div><span class="small fw-medium d-block">Uploading image to cloud...</span>'
+    ? '<div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div><span class="small fw-medium d-block">Subiendo directamente a la nube...</span>'
+    : '<div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div><span class="small fw-medium d-block">Uploading directly to cloud...</span>'
   const unconfiguredMessage = isEs
     ? '<div class="text-center text-secondary py-2"><i class="bi bi-cloud-slash fs-4 d-block mb-1"></i><span class="small">Configura CLOUDINARY_URL o CLOUDINARY_CLOUD_NAME y CLOUDINARY_UPLOAD_PRESET para subir imágenes.</span></div>'
     : '<div class="text-center text-secondary py-2"><i class="bi bi-cloud-slash fs-4 d-block mb-1"></i><span class="small">Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME & CLOUDINARY_UPLOAD_PRESET to enable cloud uploads.</span></div>'
@@ -84,10 +81,11 @@ window.mountCloudDropzone = function(element, options = {}) {
 
   const cloudName = document.querySelector('meta[name="cloudinary-cloud-name"]')?.content?.trim()
   const uploadPreset = document.querySelector('meta[name="cloudinary-upload-preset"]')?.content?.trim()
-  const serverUploadEnabled = document.querySelector('meta[name="server-upload-enabled"]')?.content === "true"
-  const useDirectCloudinary = Boolean(cloudName && uploadPreset)
+  const signedUploadEnabled = document.querySelector('meta[name="signed-upload-enabled"]')?.content === "true"
+  const signatureUrl = document.querySelector('meta[name="upload-signature-url"]')?.content?.trim() || "/uploads/signature"
+  const useDirectUnsigned = !signedUploadEnabled && Boolean(cloudName && uploadPreset)
 
-  if (!useDirectCloudinary && !serverUploadEnabled) {
+  if (!signedUploadEnabled && !useDirectUnsigned) {
     element.classList.remove("dropzone", "dz-clickable", "dz-drag-hover")
     element.removeAttribute("role")
     element.removeAttribute("tabindex")
@@ -108,6 +106,7 @@ window.mountCloudDropzone = function(element, options = {}) {
   element.appendChild(fileInput)
 
   const allowedTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"])
+  const allowedExtRegex = /\.(jpe?g|png|webp|gif)$/i
   const maxBytes = 5 * 1024 * 1024
   let isUploading = false
 
@@ -115,7 +114,8 @@ window.mountCloudDropzone = function(element, options = {}) {
     if (!file || isUploading) return
 
     const fileType = (file.type || "").toLowerCase()
-    if (fileType && !allowedTypes.has(fileType)) {
+    const isValidType = fileType ? allowedTypes.has(fileType) : allowedExtRegex.test(file.name || "")
+    if (!isValidType) {
       window.alert(invalidTypeMsg)
       fileInput.value = ""
       return
@@ -133,21 +133,37 @@ window.mountCloudDropzone = function(element, options = {}) {
     try {
       const formData = new FormData()
       formData.append("file", file)
+      let endpoint = ""
 
-      const endpoint = useDirectCloudinary
-        ? `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`
-        : "/uploads"
-
-      const headers = { Accept: "application/json" }
-      if (useDirectCloudinary) {
-        formData.append("upload_preset", uploadPreset)
-      } else {
+      if (signedUploadEnabled) {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-        if (csrfToken) headers["X-CSRF-Token"] = csrfToken
-        headers["X-Requested-With"] = "XMLHttpRequest"
+        const sigRes = await fetch(signatureUrl, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "X-CSRF-Token": csrfToken,
+            "X-Requested-With": "XMLHttpRequest"
+          }
+        })
+        const sigData = await sigRes.json().catch(() => ({}))
+        if (!sigRes.ok) {
+          throw new Error(sigData?.error || fallbackUploadError)
+        }
+        if (!sigData.cloud_name || !sigData.api_key || !sigData.timestamp || !sigData.signature) {
+          throw new Error(fallbackUploadError)
+        }
+
+        endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(sigData.cloud_name)}/image/upload`
+        formData.append("api_key", sigData.api_key)
+        formData.append("timestamp", String(sigData.timestamp))
+        formData.append("signature", sigData.signature)
+      } else {
+        endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`
+        formData.append("upload_preset", uploadPreset)
       }
 
-      const response = await fetch(endpoint, { method: "POST", headers, body: formData })
+      // Direct browser -> Cloudinary POST (no custom headers to keep CORS simple)
+      const response = await fetch(endpoint, { method: "POST", body: formData })
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
@@ -266,7 +282,6 @@ function initNewInventoryModal() {
   const modalEl = document.getElementById("newInventoryModal")
   if (!modalEl) return
 
-  // Mount dropzone immediately so it is visible as soon as the modal opens
   mountModalDropzoneIfNeeded()
 
   if (modalEl._inventoryModalInitialized) return
@@ -308,13 +323,11 @@ function initNewInventoryModal() {
         })
         descInput._mdeInstance = mde
       }
-      // Fix G3: Refresh CodeMirror layout whenever modal opens
       setTimeout(() => descInput._mdeInstance?.codemirror?.refresh(), 40)
     }
   })
 }
 
-// Fix G3: Clean up open Bootstrap modals, dropzones & backdrops before Turbo caches a page
 document.addEventListener("turbo:before-cache", () => {
   const dzEl = document.getElementById("modalDropzone")
   if (dzEl?.dropzone && typeof dzEl.dropzone.destroy === "function") {

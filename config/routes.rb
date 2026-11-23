@@ -20,7 +20,8 @@ Rails.application.routes.draw do
   get "search/suggestions", to: "search#suggestions", as: :search_suggestions
   get "tags/autocomplete",  to: "tags#autocomplete",  as: :tags_autocomplete
 
-  post "uploads", to: "uploads#create", as: :uploads
+  # Direct Signed Cloud Upload signature endpoint (zero image bytes touch web server)
+  post "uploads/signature", to: "uploads#signature", as: :upload_signature
 
   resources :users, only: %i[show] do
     collection do

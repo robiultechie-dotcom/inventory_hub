@@ -3,8 +3,8 @@
 Rails.application.config.middleware.use OmniAuth::Builder do
   if ENV["GOOGLE_CLIENT_ID"].present? && ENV["GOOGLE_CLIENT_SECRET"].present?
     provider :google_oauth2,
-             ENV.fetch("GOOGLE_CLIENT_ID"),
-             ENV.fetch("GOOGLE_CLIENT_SECRET"),
+             ENV.fetch("GOOGLE_CLIENT_ID").strip,
+             ENV.fetch("GOOGLE_CLIENT_SECRET").strip,
              {
                scope: "email,profile",
                prompt: "select_account"
@@ -13,13 +13,17 @@ Rails.application.config.middleware.use OmniAuth::Builder do
 
   if ENV["FACEBOOK_APP_ID"].present? && ENV["FACEBOOK_APP_SECRET"].present?
     provider :facebook,
-             ENV.fetch("FACEBOOK_APP_ID"),
-             ENV.fetch("FACEBOOK_APP_SECRET"),
+             ENV.fetch("FACEBOOK_APP_ID").strip,
+             ENV.fetch("FACEBOOK_APP_SECRET").strip,
              {
                scope: "email,public_profile",
                info_fields: "email,name"
              }
   end
+end
+
+if Rails.env.production? && ENV["RENDER_EXTERNAL_HOSTNAME"].present?
+  OmniAuth.config.full_host = "https://#{ENV['RENDER_EXTERNAL_HOSTNAME'].strip}"
 end
 
 OmniAuth.config.allowed_request_methods = %i[post]
