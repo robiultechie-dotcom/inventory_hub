@@ -364,50 +364,104 @@
       </div>
     <% end %>
 
-    <footer class="border-top mt-5 bg-body text-secondary">
-      <div class="container py-4">
-        <div class="row gy-3 align-items-center justify-content-between">
-          <div class="col-md-6">
-            <div class="d-flex align-items-center gap-2 mb-1">
-              <span class="brand-logo-box" style="width: 26px; height: 26px; border-radius: 0.45rem;">
-                <i class="bi bi-boxes" style="font-size: 0.8rem;"></i>
-              </span>
-              <span class="fw-semibold text-body">InventoryHub</span>
-            </div>
-            <p class="small mb-0">
-              <%= t("footer.tagline", default: "Dynamic schema & composite ID inventory management platform.") %>
-            </p>
-          </div>
-
-          <div class="col-md-6">
-            <ul class="nav justify-content-md-end gap-3 small fw-medium">
-              <li class="nav-item">
-                <%= link_to t("footer.home", default: "Home"), root_path, class: "link-secondary link-underline-opacity-0 link-underline-opacity-100-hover" %>
-              </li>
-              <li class="nav-item">
-                <%= link_to t("footer.inventories", default: "Inventories"), inventories_path, class: "link-secondary link-underline-opacity-0 link-underline-opacity-100-hover" %>
-              </li>
-              <li class="nav-item">
-                <%= link_to t("footer.search", default: "Search"), search_path, class: "link-secondary link-underline-opacity-0 link-underline-opacity-100-hover" %>
-              </li>
-              <li class="nav-item">
-                <a href="https://github.com/robiultechie-dotcom/inventory_hub" target="_blank" rel="noopener noreferrer" class="link-secondary link-underline-opacity-0 link-underline-opacity-100-hover d-inline-flex align-items-center gap-1">
-                  <i class="bi bi-github"></i>
-                  <span>GitHub</span>
-                </a>
-              </li>
-            </ul>
-          </div>
+    <footer class="border-top mt-5 bg-body text-secondary" style="font-size: 0.8125rem;">
+      <div class="container py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-2">
+          <span class="brand-logo-box" style="width: 22px; height: 22px; border-radius: 0.38rem;">
+            <i class="bi bi-boxes" style="font-size: 0.7rem;"></i>
+          </span>
+          <span class="fw-semibold text-body">InventoryHub</span>
+          <span class="text-secondary opacity-50">&middot;</span>
+          <span>&copy; <%= Time.current.year %></span>
         </div>
 
-        <div class="border-top mt-3 pt-3 d-flex flex-wrap justify-content-between align-items-center gap-2 small">
-          <span>&copy; <%= Time.current.year %> InventoryHub. <%= t("footer.rights", default: "All rights reserved.") %></span>
-          <span class="d-inline-flex align-items-center gap-2">
-            <span class="rounded-circle bg-success d-inline-block" style="width: 7px; height: 7px;"></span>
-            <span><%= t("footer.powered_by", default: "Built with Ruby on Rails & PostgreSQL") %></span>
-          </span>
+        <nav class="d-flex flex-wrap align-items-center gap-3" aria-label="Footer">
+          <button type="button" class="btn btn-link btn-sm p-0 link-secondary link-underline-opacity-0 link-underline-opacity-100-hover" style="font-size: 0.8125rem;" data-bs-toggle="modal" data-bs-target="#shortcutsModal">
+            <%= t("footer.shortcuts") %>
+          </button>
+          <button type="button" class="btn btn-link btn-sm p-0 link-secondary link-underline-opacity-0 link-underline-opacity-100-hover" style="font-size: 0.8125rem;" data-bs-toggle="modal" data-bs-target="#securityModal">
+            <%= t("footer.security") %>
+          </button>
+          <button type="button" class="btn btn-link btn-sm p-0 link-secondary link-underline-opacity-0 link-underline-opacity-100-hover" style="font-size: 0.8125rem;" data-bs-toggle="modal" data-bs-target="#privacyModal">
+            <%= t("footer.privacy") %>
+          </button>
+          <button type="button" class="btn btn-link btn-sm p-0 link-secondary link-underline-opacity-0 link-underline-opacity-100-hover" style="font-size: 0.8125rem;" data-bs-toggle="modal" data-bs-target="#termsModal">
+            <%= t("footer.terms") %>
+          </button>
+        </nav>
+
+        <div class="d-inline-flex align-items-center gap-2 px-2.5 py-1 rounded-pill border bg-body-tertiary" style="font-size: 0.75rem;">
+          <span class="rounded-circle bg-success d-inline-block" style="width: 7px; height: 7px;"></span>
+          <span class="text-body-secondary fw-medium"><%= t("footer.status_operational") %></span>
         </div>
       </div>
     </footer>
+
+    <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content modal-modern">
+          <div class="modal-header border-bottom px-4 py-3">
+            <h6 class="modal-title fw-bold mb-0"><i class="bi bi-keyboard me-2 text-primary"></i><%= t("footer.shortcuts_title") %></h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body px-4 py-3 small">
+            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+              <span class="text-secondary"><%= t("footer.shortcuts_search") %></span>
+              <kbd class="bg-body-tertiary text-body border px-2 py-1 rounded-2">/</kbd>
+            </div>
+            <div class="d-flex justify-content-between align-items-center py-2">
+              <span class="text-secondary"><%= t("footer.shortcuts_close") %></span>
+              <kbd class="bg-body-tertiary text-body border px-2 py-1 rounded-2">Esc</kbd>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="securityModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-modern">
+          <div class="modal-header border-bottom px-4 py-3">
+            <h6 class="modal-title fw-bold mb-0"><i class="bi bi-shield-lock me-2 text-primary"></i><%= t("footer.security_title") %></h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body px-4 py-3 small text-secondary">
+            <ul class="list-unstyled mb-0 d-flex flex-column gap-2.5">
+              <li class="d-flex gap-2"><i class="bi bi-check2-circle text-success mt-0.5"></i><span><%= t("footer.security_auth") %></span></li>
+              <li class="d-flex gap-2"><i class="bi bi-check2-circle text-success mt-0.5"></i><span><%= t("footer.security_locking") %></span></li>
+              <li class="d-flex gap-2"><i class="bi bi-check2-circle text-success mt-0.5"></i><span><%= t("footer.security_uploads") %></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="privacyModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-modern">
+          <div class="modal-header border-bottom px-4 py-3">
+            <h6 class="modal-title fw-bold mb-0"><i class="bi bi-file-earmark-lock me-2 text-primary"></i><%= t("footer.privacy_title") %></h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body px-4 py-3 small text-secondary lh-base">
+            <p class="mb-0"><%= t("footer.privacy_body") %></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="termsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-modern">
+          <div class="modal-header border-bottom px-4 py-3">
+            <h6 class="modal-title fw-bold mb-0"><i class="bi bi-file-text me-2 text-primary"></i><%= t("footer.terms_title") %></h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body px-4 py-3 small text-secondary lh-base">
+            <p class="mb-0"><%= t("footer.terms_body") %></p>
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
