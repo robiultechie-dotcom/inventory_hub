@@ -1,3 +1,14 @@
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="256" cy="256" r="256" fill="red"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="ihGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#ihGrad)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 15 L41 20 L41 30 L32 35 L23 30 L23 20 Z M23 20 L32 25 L41 20 M32 25 L32 35"/>
+    <path d="M23 30 L32 35 L32 45 L23 50 L14 45 L14 35 Z M14 35 L23 40 L32 35 M23 40 L23 50"/>
+    <path d="M41 30 L50 35 L50 45 L41 50 L32 45 L32 35 Z M32 35 L41 40 L50 35 M41 40 L41 50"/>
+  </g>
 </svg>
