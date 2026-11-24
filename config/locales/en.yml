@@ -316,3 +316,10 @@ en:
     status_active: "Active"
     status_blocked: "Blocked"
     you_badge: "You"
+  footer:
+    tagline: "Dynamic schema & composite ID inventory management platform."
+    home: "Home"
+    inventories: "Inventories"
+    search: "Search"
+    rights: "All rights reserved."
+    powered_by: "Built with Ruby on Rails & PostgreSQL"

@@ -316,3 +316,10 @@ es:
     status_active: "Activo"
     status_blocked: "Bloqueado"
     you_badge: "Tú"
+  footer:
+    tagline: "Plataforma de gestión de inventarios con esquemas dinámicos e IDs compuestos."
+    home: "Inicio"
+    inventories: "Inventarios"
+    search: "Buscar"
+    rights: "Todos los derechos reservados."
+    powered_by: "Desarrollado con Ruby on Rails y PostgreSQL"
