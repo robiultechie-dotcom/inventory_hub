@@ -60,18 +60,21 @@ class Item < ApplicationRecord
     ].join(" || ' ' || ")
 
     tsq = build_fts_query(q)
+    like_q = "%#{sanitize_sql_like(q)}%"
     if tsq.present?
       where(
         "to_tsvector('simple', #{searchable_expr}) @@ to_tsquery('simple', :tsq) " \
+        "OR items.custom_id ILIKE :like_q " \
         "OR EXISTS (" \
           "SELECT 1 FROM item_field_values " \
           "WHERE item_field_values.item_id = items.id " \
           "AND to_tsvector('simple', coalesce(item_field_values.string_value, '') || ' ' || coalesce(item_field_values.text_value, '')) @@ to_tsquery('simple', :tsq)" \
         ")",
-        tsq: tsq
+        tsq: tsq,
+        like_q: like_q
       )
     else
-      where("to_tsvector('simple', #{searchable_expr}) @@ plainto_tsquery('simple', :q)", q: q)
+      where("to_tsvector('simple', #{searchable_expr}) @@ plainto_tsquery('simple', :q) OR items.custom_id ILIKE :like_q", q: q, like_q: like_q)
     end
   }
 
