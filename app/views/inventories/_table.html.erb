@@ -1,7 +1,8 @@
 <%
-  show_toolbar = local_assigns.fetch(:selectable, false) && current_user.present?
-  allow_delete = local_assigns.fetch(:deletable, true) && current_user.present?
-  allow_create = local_assigns.fetch(:creatable, false) && current_user.present?
+  show_toolbar   = local_assigns.fetch(:selectable, false) && current_user.present?
+  allow_delete   = local_assigns.fetch(:deletable, true) && current_user.present?
+  allow_create   = local_assigns.fetch(:creatable, false) && current_user.present?
+  empty_subtitle = local_assigns.fetch(:empty_subtitle, nil)
 %>
 
 <div data-controller="table-selection">
@@ -62,7 +63,9 @@
                 <i class="bi bi-folder2-open"></i>
               </div>
               <div class="fw-semibold text-body mb-1"><%= t('common.no_inventories') %></div>
-              <div class="text-secondary small"><%= t('home.latest_subtitle') %></div>
+              <% if empty_subtitle.present? %>
+                <div class="text-secondary small"><%= empty_subtitle %></div>
+              <% end %>
             </td>
           </tr>
         <% else %>
@@ -100,7 +103,11 @@
                       </span>
                       <% if inventory.is_public? %>
                         <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.68rem;">
-                          <%= t('common.public') %>
+                          <i class="bi bi-globe2 me-1"></i><%= t('common.public') %>
+                        </span>
+                      <% else %>
+                        <span class="badge bg-body-secondary text-secondary border rounded-pill" style="font-size: 0.68rem;">
+                          <i class="bi bi-lock-fill me-1"></i><%= t('common.restricted') %>
                         </span>
                       <% end %>
                     </div>

@@ -37,11 +37,11 @@
 
     <div class="d-flex flex-wrap align-items-center gap-2.5">
       <div class="bento-stat-card py-2 px-3 bg-body">
-        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('home.stats_inventories') %></span>
+        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('workspace.stat_owned', default: 'Owned Inventories') %></span>
         <span class="fw-bold font-mono fs-5 text-primary"><%= @owned_inventories.size %></span>
       </div>
       <div class="bento-stat-card py-2 px-3 bg-body">
-        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('workspace.writable_title') %></span>
+        <span class="text-secondary small d-block" style="font-size: 0.72rem;"><%= t('workspace.stat_writable', default: 'Write Access') %></span>
         <span class="fw-bold font-mono fs-5"><%= @writable_inventories.size %></span>
       </div>
       <% if is_own_profile %>
@@ -53,7 +53,6 @@
   </div>
 </div>
 
-<!-- TABLE 1: Inventories Owned by User -->
 <div class="card overflow-hidden mb-4">
   <div class="card-header bg-transparent py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-3 border-bottom">
     <div class="d-flex align-items-center gap-2.5">
@@ -76,7 +75,7 @@
       <%= hidden_field_tag :access_category_id, params[:access_category_id] if params[:access_category_id].present? %>
       <%= hidden_field_tag :access_sort, params[:access_sort] if params[:access_sort].present? %>
 
-      <div class="input-group input-group-sm" style="width: 210px;">
+      <div class="input-group input-group-sm" style="width: 265px;">
         <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-search"></i></span>
         <input type="search" name="owned_q" value="<%= params[:owned_q] %>" class="form-control border-start-0 ps-0" placeholder="<%= t('workspace.filter_placeholder') %>">
       </div>
@@ -102,10 +101,14 @@
     <% end %>
   </div>
 
-  <%= render "inventories/table", inventories: @owned_inventories, selectable: can_manage_profile, deletable: can_manage_profile, creatable: is_own_profile %>
+  <%= render "inventories/table",
+        inventories: @owned_inventories,
+        selectable: can_manage_profile,
+        deletable: can_manage_profile,
+        creatable: false,
+        empty_subtitle: (is_own_profile ? t('workspace.owned_empty_hint', default: 'Create your first inventory using the New Inventory button above.') : nil) %>
 </div>
 
-<!-- TABLE 2: Inventories User Has Write Access To -->
 <div class="card overflow-hidden">
   <div class="card-header bg-transparent py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-3 border-bottom">
     <div class="d-flex align-items-center gap-2.5">
@@ -128,7 +131,7 @@
       <%= hidden_field_tag :owned_category_id, params[:owned_category_id] if params[:owned_category_id].present? %>
       <%= hidden_field_tag :owned_sort, params[:owned_sort] if params[:owned_sort].present? %>
 
-      <div class="input-group input-group-sm" style="width: 210px;">
+      <div class="input-group input-group-sm" style="width: 265px;">
         <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-search"></i></span>
         <input type="search" name="access_q" value="<%= params[:access_q] %>" class="form-control border-start-0 ps-0" placeholder="<%= t('workspace.filter_placeholder') %>">
       </div>
@@ -154,5 +157,9 @@
     <% end %>
   </div>
 
-  <%= render "inventories/table", inventories: @writable_inventories, selectable: current_user.present?, deletable: false %>
+  <%= render "inventories/table",
+        inventories: @writable_inventories,
+        selectable: current_user.present?,
+        deletable: false,
+        empty_subtitle: t('workspace.writable_empty_hint', default: 'Shared and public inventories you can edit will appear here.') %>
 </div>
