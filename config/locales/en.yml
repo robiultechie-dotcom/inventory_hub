@@ -86,7 +86,7 @@ en:
     users_updated: "User accounts updated successfully."
     self_demoted: "You have removed your own administrator privileges."
   nav:
-    search_placeholder: "Search inventories, items, tags... (/)"
+    search_placeholder: "Search inventories, items, tags..."
     workspace: "My Workspace"
     admin_panel: "Admin"
     sign_in: "Sign In"
@@ -317,14 +317,10 @@ en:
     status_blocked: "Blocked"
     you_badge: "You"
   footer:
-    shortcuts: "Shortcuts"
     security: "Security"
     privacy: "Privacy"
     terms: "Terms"
     status_operational: "All systems operational"
-    shortcuts_title: "Keyboard Shortcuts"
-    shortcuts_search: "Focus global search"
-    shortcuts_close: "Close active modal or dropdown"
     security_title: "Security & Data Integrity"
     security_auth: "Authentication via OAuth 2.0 (Google & GitHub) and BCrypt password hashing with cryptographic email verification."
     security_locking: "Optimistic locking protects inventories and items against concurrent overwrite conflicts."

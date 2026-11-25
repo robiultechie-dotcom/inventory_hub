@@ -86,7 +86,7 @@ es:
     users_updated: "Cuentas de usuario actualizadas."
     self_demoted: "Has eliminado tus propios privilegios de administrador."
   nav:
-    search_placeholder: "Buscar inventarios, artículos, etiquetas... (/)"
+    search_placeholder: "Buscar inventarios, artículos, etiquetas..."
     workspace: "Mi Espacio"
     admin_panel: "Admin"
     sign_in: "Acceder"
@@ -317,14 +317,10 @@ es:
     status_blocked: "Bloqueado"
     you_badge: "Tú"
   footer:
-    shortcuts: "Atajos"
     security: "Seguridad"
     privacy: "Privacidad"
     terms: "Términos"
     status_operational: "Todos los sistemas operativos"
-    shortcuts_title: "Atajos de Teclado"
-    shortcuts_search: "Enfocar búsqueda global"
-    shortcuts_close: "Cerrar ventana o menú activo"
     security_title: "Seguridad e Integridad de Datos"
     security_auth: "Autenticación mediante OAuth 2.0 (Google y GitHub) y cifrado BCrypt con verificación criptográfica de correo."
     security_locking: "El bloqueo optimista protege inventarios y artículos contra conflictos de edición simultánea."
