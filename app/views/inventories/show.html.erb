@@ -68,7 +68,7 @@
               <span>&bull;</span>
               <span class="badge bg-body-tertiary text-secondary border font-mono px-2 py-1"
                     data-bs-toggle="tooltip"
-                    title="Revision <%= @inventory.lock_version %>">
+                    title="<%= t('common.revision', version: @inventory.lock_version, default: "Revision #{@inventory.lock_version}") %>">
                 <i class="bi bi-layers me-1"></i>v<span id="headerLockVersion"><%= @inventory.lock_version %></span>
               </span>
             <% end %>

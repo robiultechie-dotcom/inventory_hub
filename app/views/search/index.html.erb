@@ -63,7 +63,7 @@
             <i class="bi bi-box-arrow-up-right me-1"></i><%= t('common.open') %>
           </button>
           <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#likeSelected" class="btn btn-sm btn-outline-danger rounded-3" disabled>
-            <i class="bi bi-heart-fill me-1"></i><%= t('common.like_toggle') %>
+            <i class="bi bi-heart me-1"></i><%= t('common.like_toggle') %>
           </button>
         </div>
       </div>
@@ -105,7 +105,7 @@
                   </td>
                 <% end %>
                 <td class="font-mono fw-semibold <%= 'ps-4' unless current_user %>">
-                  <%= link_to item.custom_id, item_url, class: "badge bg-primary-subtle text-primary border border-primary-subtle text-decoration-underline font-mono px-2.5 py-1.5" %>
+                  <%= link_to item.custom_id, item_url, class: "badge bg-primary-subtle text-primary border border-primary-subtle text-decoration-none font-mono px-2.5 py-1.5" %>
                 </td>
                 <td>
                   <%= link_to item.primary_label, item_url, class: "text-body text-decoration-underline fw-semibold" %>

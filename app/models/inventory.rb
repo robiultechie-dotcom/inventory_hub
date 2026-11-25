@@ -37,6 +37,7 @@ class Inventory < ApplicationRecord
 
   before_create :set_default_custom_id_config
   after_save :persist_pending_tags
+  after_save :clear_removed_legacy_item_columns
 
   scope :latest_first, -> { includes(:category, :creator, :tags).order(created_at: :desc) }
   scope :top_popular, ->(limit_count = 5) { includes(:category, :creator).order(items_count: :desc, created_at: :desc).limit(limit_count) }
@@ -48,7 +49,6 @@ class Inventory < ApplicationRecord
     tokens.map { |token| "#{token}:*" }.join(" & ")
   end
 
-  # Section 14: Native PostgreSQL GIN-indexed full-text search across title, description, tags & comments
   scope :full_text_search, lambda { |query|
     q = query.to_s.strip
     return none if q.blank?
@@ -96,7 +96,6 @@ class Inventory < ApplicationRecord
     tags.map(&:name).join(", ")
   end
 
-  # Deferred bulk tag assignment so failed validations or lock conflicts never mutate DB tags
   def tag_list=(raw_string)
     names = raw_string.to_s.split(",").map { |n| n.strip.downcase }.reject(&:blank?).uniq
     @pending_tag_names = names
@@ -106,7 +105,6 @@ class Inventory < ApplicationRecord
     end
   end
 
-  # Authoritative unlimited dynamic custom fields (Section 16)
   def ordered_custom_fields
     if custom_fields.loaded?
       custom_fields.reject(&:marked_for_destruction?).sort_by { |cf| [ cf.position.to_i, cf.id.to_i ] }
@@ -119,12 +117,12 @@ class Inventory < ApplicationRecord
     ordered_custom_fields.select(&:show_in_table?)
   end
 
-  # Stages unlimited dynamic field creates/updates/reorders/deletes inside one atomic transaction with optimistic locking
   def sync_custom_fields_params!(entries)
     existing_records = custom_fields.to_a
     existing_by_id   = existing_records.index_by(&:id)
     kept_ids         = Set.new
     bool_caster      = ActiveModel::Type::Boolean.new
+    @cleared_legacy_slots = Set.new
 
     Array(entries).each_with_index do |raw, idx|
       data = raw.respond_to?(:to_h) ? raw.to_h.stringify_keys : {}
@@ -132,7 +130,10 @@ class Inventory < ApplicationRecord
       existing = field_id.match?(/\A\d+\z/) ? existing_by_id[field_id.to_i] : nil
 
       if bool_caster.cast(data["_destroy"])
-        existing&.mark_for_destruction
+        if existing
+          @cleared_legacy_slots.add(existing.legacy_slot_key) if existing.legacy_slot_key.present?
+          existing.mark_for_destruction
+        end
         next
       end
 
@@ -140,6 +141,11 @@ class Inventory < ApplicationRecord
       next unless CustomField::FIELD_TYPES.key?(ftype)
 
       record = existing || custom_fields.build
+      if existing && existing.field_type != ftype && existing.legacy_slot_key.present?
+        @cleared_legacy_slots.add(existing.legacy_slot_key)
+        record.legacy_slot_key = nil
+      end
+
       raw_name = data["name"].to_s.strip
       fallback_name = "#{CustomField::FIELD_TYPES[ftype]} ##{idx + 1}"
 
@@ -161,14 +167,16 @@ class Inventory < ApplicationRecord
     end
 
     existing_records.each do |record|
-      record.mark_for_destruction unless kept_ids.include?(record.id)
+      next if kept_ids.include?(record.id)
+
+      @cleared_legacy_slots.add(record.legacy_slot_key) if record.legacy_slot_key.present?
+      record.mark_for_destruction
     end
 
     mirror_dynamic_fields_to_legacy_columns!
     updated_at_will_change! if persisted?
   end
 
-  # Legacy slot helpers kept during Step 3 -> Step 4 UI transition
   def all_custom_field_slots
     slots = []
     FIELD_TYPES.each do |type_key, meta|
@@ -226,7 +234,6 @@ class Inventory < ApplicationRecord
     updated_at_will_change! if persisted?
   end
 
-  # Section 4 & 14: Batched relational SQL aggregation (zero queries inside loops)
   def statistics
     fields = ordered_custom_fields
     numeric_fields   = fields.select(&:numeric?)
@@ -314,6 +321,7 @@ class Inventory < ApplicationRecord
 
   def sync_legacy_slots_to_custom_fields!
     existing_by_slot = custom_fields.to_a.select { |cf| cf.legacy_slot_key.present? }.index_by(&:legacy_slot_key)
+    @cleared_legacy_slots = Set.new
 
     FIELD_TYPES.each do |type_key, meta|
       (1..meta[:count]).each do |idx|
@@ -331,8 +339,9 @@ class Inventory < ApplicationRecord
             show_in_table: public_send("#{prefix}_show_in_table") == true,
             position:      public_send("#{prefix}_position").to_i
           )
-        else
-          cf&.mark_for_destruction
+        elsif cf
+          @cleared_legacy_slots.add(cf.legacy_slot_key) if cf.legacy_slot_key.present?
+          cf.mark_for_destruction
         end
       end
     end
@@ -356,13 +365,28 @@ class Inventory < ApplicationRecord
       next if idx > meta[:count]
 
       prefix = "#{meta[:prefix]}#{idx}"
-      cf.legacy_slot_key ||= "#{cf.field_type}#{idx}"
       public_send("#{prefix}_state=", true)
       public_send("#{prefix}_name=", cf.name)
       public_send("#{prefix}_desc=", cf.description)
       public_send("#{prefix}_show_in_table=", cf.show_in_table?)
       public_send("#{prefix}_position=", cf.position)
     end
+  end
+
+  def clear_removed_legacy_item_columns
+    return unless defined?(@cleared_legacy_slots) && @cleared_legacy_slots.present?
+
+    slots = @cleared_legacy_slots.to_a
+    @cleared_legacy_slots = nil
+
+    updates = slots.each_with_object({}) do |slot_key, hash|
+      col = Item::LEGACY_VALUE_COLUMNS[slot_key]
+      next unless col
+
+      hash[col] = slot_key.start_with?("bool") ? false : nil
+    end
+
+    items.update_all(updates) if updates.any?
   end
 
   def persist_pending_tags

@@ -139,6 +139,7 @@ en:
     page_summary: "Page %{page} of %{total}"
     prev_page: "Previous"
     next_page: "Next"
+    revision: "Revision %{version}"
   search:
     results_summary: "%{inv_count} inventories and %{item_count} items matched"
     col_item: "Item"

@@ -106,7 +106,7 @@
         selectable: can_manage_profile,
         deletable: can_manage_profile,
         creatable: false,
-        empty_subtitle: (is_own_profile ? t('workspace.owned_empty_hint', default: 'Create your first inventory using the New Inventory button above.') : nil) %>
+        empty_subtitle: (is_own_profile ? t('workspace.empty_owned_hint') : nil) %>
 </div>
 
 <div class="card overflow-hidden">
@@ -161,5 +161,5 @@
         inventories: @writable_inventories,
         selectable: current_user.present?,
         deletable: false,
-        empty_subtitle: t('workspace.writable_empty_hint', default: 'Shared and public inventories you can edit will appear here.') %>
+        empty_subtitle: t('workspace.empty_writable_hint') %>
 </div>

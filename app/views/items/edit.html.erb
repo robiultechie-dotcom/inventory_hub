@@ -12,7 +12,11 @@
     <div class="d-flex align-items-center gap-2">
       <h1 class="h4 fw-bold mb-0"><%= t('common.edit') %></h1>
       <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono"><%= @item.custom_id %></span>
-      <span class="badge bg-body-tertiary text-secondary border font-mono">v<%= @item.lock_version %></span>
+      <span class="badge bg-body-tertiary text-secondary border font-mono px-2 py-1"
+            data-bs-toggle="tooltip"
+            title="<%= t('common.revision', version: @item.lock_version, default: "Revision #{@item.lock_version}") %>">
+        <i class="bi bi-layers me-1"></i>v<%= @item.lock_version %>
+      </span>
     </div>
   </div>
 

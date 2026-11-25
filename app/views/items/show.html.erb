@@ -40,7 +40,7 @@
         </span>
         <span class="badge bg-body-tertiary text-secondary border font-mono px-2 py-1.5"
               data-bs-toggle="tooltip"
-              title="Revision <%= @item.lock_version %>">
+              title="<%= t('common.revision', version: @item.lock_version, default: "Revision #{@item.lock_version}") %>">
           <i class="bi bi-layers me-1"></i>v<%= @item.lock_version %>
         </span>
       </div>
