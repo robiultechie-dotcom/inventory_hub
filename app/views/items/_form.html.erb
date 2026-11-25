@@ -1,6 +1,15 @@
-<% id_example = CustomIdGenerator.new(@inventory).generate(preview: true) %>
+<%
+  id_example = CustomIdGenerator.new(@inventory).generate(preview: true)
+  short_fields_count = @custom_fields.count { |f| !%w[text link].include?(f.field_type) }
+  short_col_class = case short_fields_count
+                    when 1 then "col-12"
+                    when 2, 4 then "col-md-6"
+                    else "col-md-6 col-lg-4"
+                    end
+  submit_label = @item.new_record? ? t('inventory.add_item') : t('common.save')
+%>
 
-<div class="card p-4">
+<div class="card border shadow-sm rounded-4 p-4">
   <%= form_with model: [ @inventory, @item ], local: true do |f| %>
     <%= f.hidden_field :lock_version %>
 
@@ -40,7 +49,7 @@
         <div class="input-group">
           <span class="input-group-text bg-body font-mono text-primary"><i class="bi bi-upc-scan"></i></span>
           <%= f.text_field :custom_id,
-                class: "form-control modern-input font-mono fw-semibold",
+                class: "form-control modern-input font-mono fw-semibold bg-body",
                 required: true,
                 placeholder: id_example %>
         </div>
@@ -50,18 +59,24 @@
       </div>
 
       <div class="col-md-3">
-        <label class="form-label modern-label text-secondary"><%= t('home.col_creator') %></label>
+        <label class="form-label modern-label text-secondary">
+          <i class="bi bi-lock-fill me-1 opacity-75"></i><%= t('home.col_creator') %>
+        </label>
         <input type="text"
-               class="form-control modern-input bg-body"
+               class="form-control modern-input bg-body-secondary text-secondary"
                value="<%= (@item.created_by || current_user)&.name %>"
+               readonly
                disabled>
       </div>
 
       <div class="col-md-3">
-        <label class="form-label modern-label text-secondary"><%= t('common.created_at') %></label>
+        <label class="form-label modern-label text-secondary">
+          <i class="bi bi-lock-fill me-1 opacity-75"></i><%= t('common.created_at') %>
+        </label>
         <input type="text"
-               class="form-control modern-input font-mono bg-body"
-               value="<%= (@item.created_at || Time.current).strftime('%Y-%m-%d %H:%M') %>"
+               class="form-control modern-input font-mono bg-body-secondary text-secondary"
+               value="<%= (@item.created_at || Time.current).utc.strftime('%Y-%m-%d %H:%M UTC') %>"
+               readonly
                disabled>
       </div>
     </div>
@@ -71,15 +86,8 @@
         <% val = @item.value_for(field) %>
         <% input_id = "item_field_#{field.id}" %>
         <% input_name = "field_values[#{field.id}]" %>
-        <div class="<%= field.field_type == 'text' || field.link? ? 'col-12' : 'col-md-6' %>">
-          <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
-            <label for="<%= input_id %>" class="form-label modern-label mb-0"><%= field.name %></label>
-            <% if field.description.present? %>
-              <span class="text-secondary small flex-shrink-0" data-bs-toggle="tooltip" title="<%= field.description %>">
-                <i class="bi bi-info-circle"></i>
-              </span>
-            <% end %>
-          </div>
+        <div class="<%= field.field_type == 'text' || field.link? ? 'col-12' : short_col_class %>">
+          <label for="<%= input_id %>" class="form-label modern-label mb-1"><%= field.name %></label>
 
           <% case field.field_type %>
           <% when "string" %>
@@ -118,23 +126,50 @@
                    placeholder="https://...">
 
             <% if val.present? %>
-              <% url_str = val.to_s %>
+              <%
+                url_str = val.to_s.strip
+                parsed_uri = begin
+                  URI.parse(url_str)
+                rescue URI::InvalidURIError
+                  nil
+                end
+                host_label = parsed_uri&.host.presence || url_str
+                raw_name = parsed_uri&.path.present? && parsed_uri.path != "/" ? File.basename(parsed_uri.path) : host_label
+                file_label = CGI.unescape(raw_name.to_s).presence || host_label
+                is_image = url_str.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?\z/i) ||
+                           url_str.include?("images.unsplash.com") ||
+                           url_str.include?("res.cloudinary.com") ||
+                           url_str.include?("iili.io")
+                is_pdf = url_str.match?(/\.pdf(\?.*)?\z/i)
+                icon_class = if is_pdf
+                               "bi-file-earmark-pdf-fill text-danger"
+                             elsif is_image
+                               "bi-image-fill text-info"
+                             else
+                               "bi-link-45deg text-primary"
+                             end
+              %>
               <div class="mt-2 p-2.5 rounded-3 border bg-body-tertiary">
-                <div class="d-flex align-items-center justify-content-between gap-2 mb-1.5">
-                  <span class="small text-secondary fw-medium"><i class="bi bi-eye me-1"></i><%= t('items.document_preview', default: 'Preview') %></span>
-                  <%= link_to url_str, target: "_blank", rel: "noopener noreferrer", class: "btn btn-sm btn-outline-primary rounded-3 py-0 px-2 font-mono" do %>
-                    <i class="bi bi-box-arrow-up-right me-1"></i><%= t('common.open') %>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div class="d-flex align-items-center gap-2 overflow-hidden" style="min-width: 0;">
+                    <i class="bi <%= icon_class %> fs-5 flex-shrink-0"></i>
+                    <div class="overflow-hidden">
+                      <div class="fw-semibold text-body small text-truncate"><%= file_label %></div>
+                      <div class="text-secondary font-mono text-truncate" style="font-size: 0.72rem;"><%= host_label %></div>
+                    </div>
+                  </div>
+                  <%= link_to url_str, target: "_blank", rel: "noopener noreferrer", class: "btn btn-sm btn-outline-primary rounded-3 px-2.5 fw-semibold flex-shrink-0" do %>
+                    <span><%= t('common.open') %></span>
+                    <i class="bi bi-box-arrow-up-right ms-1"></i>
                   <% end %>
                 </div>
-                <% if url_str.match?(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) || url_str.include?("images.unsplash.com") || url_str.include?("res.cloudinary.com") || url_str.include?("iili.io") %>
-                  <img src="<%= url_str %>"
-                       alt="<%= field.name %>"
-                       class="rounded-3 border shadow-sm object-fit-cover"
-                       style="max-height: 200px; max-width: 100%;"
-                       onerror="this.closest('div').classList.add('d-none');">
-                <% elsif url_str.match?(/\.pdf(\?.*)?$/i) %>
-                  <div class="ratio ratio-16x9 rounded-3 overflow-hidden border" style="max-height: 260px;">
-                    <iframe src="<%= url_str %>" title="<%= field.name %>" loading="lazy"></iframe>
+                <% if is_image %>
+                  <div class="mt-2 pt-2 border-top text-center">
+                    <img src="<%= url_str %>"
+                         alt="<%= field.name %>"
+                         class="rounded-2 object-fit-contain"
+                         style="max-height: 180px; max-width: 100%;"
+                         onerror="this.closest('div').classList.add('d-none');">
                   </div>
                 <% end %>
               </div>
@@ -179,7 +214,7 @@
 
     <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
       <%= link_to t('common.cancel'), inventory_path(@inventory, tab: "items"), class: "btn btn-outline-secondary rounded-3 px-4" %>
-      <%= f.submit t('common.save'), class: "btn btn-primary fw-semibold rounded-3 px-4 shadow-sm" %>
+      <%= f.submit submit_label, class: "btn btn-primary fw-semibold rounded-3 px-4 shadow-sm" %>
     </div>
   <% end %>
 </div>
