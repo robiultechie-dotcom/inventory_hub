@@ -79,6 +79,8 @@ export default class extends Controller {
     "headerVisibility",
     "headerDescription",
     "headerTags",
+    "accessStatusBadge",
+    "publicAccessNotice",
     "itemsTableBody",
     "itemFilterInput",
     "itemSortSelect",
@@ -329,7 +331,7 @@ export default class extends Controller {
     this.changeCounter += 1
     const headerBadge = document.getElementById("autoSaveBadge")
     if (headerBadge) {
-      headerBadge.className = "badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1 font-mono"
+      headerBadge.className = "badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 font-mono"
       headerBadge.innerHTML = `<i class="bi bi-arrow-repeat me-1"></i>${this.dict.unsaved}`
     }
   }
@@ -372,16 +374,33 @@ export default class extends Controller {
       this.headerCategoryTarget.append(icon, document.createTextNode(data.category_name))
     }
 
-    if (this.hasHeaderVisibilityTarget && typeof data.is_public === "boolean") {
-      this.headerVisibilityTarget.className = `badge rounded-pill px-3 py-1 ${
+    if (typeof data.is_public === "boolean") {
+      const badgeClass = `badge rounded-pill px-3 py-1 ${
         data.is_public
           ? "bg-success-subtle text-success border border-success-subtle"
           : "bg-secondary-subtle text-secondary border border-secondary-subtle"
       }`
-      this.headerVisibilityTarget.innerHTML = ""
-      const icon = document.createElement("i")
-      icon.className = `bi ${data.is_public ? "bi-globe2" : "bi-lock-fill"} me-1`
-      this.headerVisibilityTarget.append(icon, document.createTextNode(data.visibility_label || ""))
+      const iconClass = `bi ${data.is_public ? "bi-globe2" : "bi-lock-fill"} me-1`
+
+      if (this.hasHeaderVisibilityTarget) {
+        this.headerVisibilityTarget.className = badgeClass
+        this.headerVisibilityTarget.innerHTML = ""
+        const icon = document.createElement("i")
+        icon.className = iconClass
+        this.headerVisibilityTarget.append(icon, document.createTextNode(data.visibility_label || ""))
+      }
+
+      if (this.hasAccessStatusBadgeTarget) {
+        this.accessStatusBadgeTarget.className = badgeClass
+        this.accessStatusBadgeTarget.innerHTML = ""
+        const icon = document.createElement("i")
+        icon.className = iconClass
+        this.accessStatusBadgeTarget.append(icon, document.createTextNode(data.visibility_label || ""))
+      }
+
+      if (this.hasPublicAccessNoticeTarget) {
+        this.publicAccessNoticeTarget.classList.toggle("d-none", !data.is_public)
+      }
     }
 
     if (this.hasHeaderDescriptionTarget && typeof data.description_html === "string") {
@@ -409,7 +428,6 @@ export default class extends Controller {
     }
   }
 
-  // Prevents newly created dynamic fields from being duplicated/recreated on subsequent auto-saves
   syncSavedCustomFieldIds(savedFields) {
     if (!this.hasFieldsListTarget || !Array.isArray(savedFields)) return
 
@@ -435,6 +453,12 @@ export default class extends Controller {
   async executeAutoSaveRequest() {
     if (this.hasFieldsListTarget) {
       this.reindexDynamicFields()
+    }
+    if (this.tagTomSelect && this.hasTagInputTarget) {
+      this.tagInputTarget.value = this.tagTomSelect.getValue()
+    }
+    if (this.mdeInstance && this.hasMarkdownInputTarget) {
+      this.markdownInputTarget.value = this.mdeInstance.value()
     }
 
     const snapshotCounter = this.changeCounter
@@ -475,7 +499,7 @@ export default class extends Controller {
 
         if (headerBadge) {
           if (this.changeCounter > this.lastSavedCounter) {
-            headerBadge.className = "badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1 font-mono"
+            headerBadge.className = "badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 font-mono"
             headerBadge.innerHTML = `<i class="bi bi-arrow-repeat me-1"></i>${this.dict.unsaved}`
           } else {
             headerBadge.className = "badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1"
@@ -510,23 +534,43 @@ export default class extends Controller {
 
   initTagAutocomplete() {
     if (!this.hasTagInputTarget || !window.TomSelect || this.tagInputTarget.tomselect) return
-    const existing = this.tagInputTarget.value.split(",").map((t) => t.trim()).filter(Boolean)
+    const existing = Array.from(
+      new Set(this.tagInputTarget.value.split(",").map((t) => t.trim()).filter(Boolean))
+    )
+    this.tagInputTarget.value = existing.join(",")
+
+    let initializing = true
     this.tagTomSelect = new window.TomSelect(this.tagInputTarget, {
       plugins: ["remove_button"],
+      delimiter: ",",
+      maxItems: null,
       persist: false,
       create: true,
       valueField: "name",
       labelField: "name",
       searchField: "name",
       options: existing.map((name) => ({ name })),
+      items: existing,
       load: (query, callback) => {
         fetch(`/tags/autocomplete?q=${encodeURIComponent(query)}`)
           .then((r) => r.json())
           .then((names) => callback(names.map((name) => ({ name }))))
           .catch(() => callback())
       },
-      onChange: () => this.markDirty()
+      onChange: () => {
+        if (!initializing) this.markDirty()
+      }
     })
+
+    existing.forEach((name) => {
+      if (!this.tagTomSelect.options[name]) {
+        this.tagTomSelect.addOption({ name })
+      }
+      if (!this.tagTomSelect.items.includes(name)) {
+        this.tagTomSelect.addItem(name, true)
+      }
+    })
+    initializing = false
   }
 
   initReadyMadeMarkdownEditor() {
@@ -743,7 +787,6 @@ export default class extends Controller {
     this.idPreviewTarget.textContent = parts.join("") || `ITEM-${String(nextSeq).padStart(4, "0")}`
   }
 
-  // Unlimited Dynamic Custom Fields Builder (Section 16)
   initCustomFieldsBuilder() {
     if (!this.hasFieldsListTarget) return
     this.reindexDynamicFields()

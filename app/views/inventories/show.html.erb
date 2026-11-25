@@ -2,6 +2,7 @@
   can_manage = @inventory.manageable_by?(current_user)
   can_write  = @inventory.writable_by?(current_user)
   primary_link_field = @dynamic_table_fields.find { |f| f.field_type == "string" } || @dynamic_table_fields.first
+  id_link_decoration = primary_link_field.nil? ? "text-decoration-underline" : "text-decoration-none"
 
   tabs = [
     [ "items",      "bi-table",                    t('inventory.tabs.items'),      @inventory.items_count, nil,              true ],
@@ -65,7 +66,11 @@
             <span><%= t('inventory.created_by') %> <%= link_to @inventory.creator.name, user_path(@inventory.creator), class: "fw-semibold text-body text-decoration-underline" %></span>
             <% if can_manage %>
               <span>&bull;</span>
-              <span class="badge bg-body-tertiary text-secondary border font-mono">v<span id="headerLockVersion"><%= @inventory.lock_version %></span></span>
+              <span class="badge bg-body-tertiary text-secondary border font-mono px-2 py-1"
+                    data-bs-toggle="tooltip"
+                    title="Revision <%= @inventory.lock_version %>">
+                <i class="bi bi-layers me-1"></i>v<span id="headerLockVersion"><%= @inventory.lock_version %></span>
+              </span>
             <% end %>
             <span data-inventory-workspace-target="headerVisibility" class="badge rounded-pill px-3 py-1 <%= @inventory.is_public? ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle' %>">
               <i class="bi <%= @inventory.is_public? ? 'bi-globe2' : 'bi-lock-fill' %> me-1"></i><%= @inventory.is_public? ? t('common.public') : t('common.restricted') %>
@@ -124,7 +129,7 @@
               <i class="bi <%= can_write ? 'bi-pencil-square' : 'bi-box-arrow-up-right' %> me-1"></i><%= can_write ? t('common.edit') : t('common.open') %>
             </button>
             <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#likeSelected" class="btn btn-sm btn-outline-danger rounded-3" disabled>
-              <i class="bi bi-heart-fill me-1"></i><%= t('common.like_toggle') %>
+              <i class="bi bi-heart me-1"></i><%= t('common.like_toggle') %>
             </button>
             <% if can_write %>
               <button type="button" data-table-selection-target="bulkAction" data-action="click->table-selection#submitBulk" data-confirm-message="<%= t('items.confirm_delete') %>" class="btn btn-sm btn-outline-danger rounded-3" disabled>
@@ -139,13 +144,13 @@
         <% end %>
 
         <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
-          <div class="input-group input-group-sm" style="width: 230px;">
+          <div class="input-group input-group-sm" style="width: 260px;">
             <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-funnel"></i></span>
             <input type="search"
                    data-inventory-workspace-target="itemFilterInput"
                    data-action="input->inventory-workspace#filterAndSortItems"
                    class="form-control border-start-0 ps-0"
-                   placeholder="<%= t('workspace.filter_placeholder') %>">
+                   placeholder="<%= t('inventory.item_filter_placeholder', default: 'Filter items by ID or values...') %>">
           </div>
           <select data-inventory-workspace-target="itemSortSelect"
                   data-action="change->inventory-workspace#filterAndSortItems"
@@ -208,7 +213,7 @@
                     </td>
                   <% end %>
                   <td class="font-mono fw-semibold <%= 'ps-4' unless current_user %>">
-                    <%= link_to item.custom_id, target_url, class: "badge bg-primary-subtle text-primary border border-primary-subtle text-decoration-underline font-mono px-3 py-1" %>
+                    <%= link_to item.custom_id, target_url, class: "badge bg-primary-subtle text-primary border border-primary-subtle #{id_link_decoration} font-mono px-3 py-1" %>
                   </td>
                   <% @dynamic_table_fields.each do |field| %>
                     <% val = item.value_for(field) %>
@@ -378,7 +383,7 @@
                      class="rounded-3 border object-fit-cover flex-shrink-0"
                      style="width: 60px; height: 60px;">
                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
-                  <i class="bi bi-cloud-check-fill me-1"></i><%= t('common.saved_badge') %>
+                  <i class="bi bi-image-fill me-1"></i><%= t('inventory.image_uploaded', default: 'Cover image uploaded') %>
                 </span>
               </div>
               <button type="button" data-inventory-workspace-target="removeImgBtn" class="btn btn-sm btn-outline-danger rounded-3 flex-shrink-0">
@@ -387,7 +392,7 @@
             </div>
           </div>
 
-          <div class="col-12 pt-3 border-top">
+          <div class="col-12 pt-3 border-top d-flex justify-content-end">
             <%= f.submit t('common.save'), class: "btn btn-primary btn-sm fw-semibold rounded-3 px-4 py-2 shadow-sm" %>
           </div>
         </div>
@@ -486,11 +491,11 @@
 
         <p class="text-secondary small mb-3"><i class="bi bi-info-circle me-1"></i><%= t('inventory.custom_id_help_text') %></p>
 
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center pt-3 border-top">
           <button type="button" data-action="click->inventory-workspace#addIdElement" class="btn btn-outline-primary btn-sm fw-semibold rounded-3 px-3">
             <i class="bi bi-plus-lg me-1"></i><%= t('inventory.add_element') %>
           </button>
-          <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-4 shadow-sm"><%= t('common.save') %></button>
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-4 py-2 shadow-sm"><%= t('common.save') %></button>
         </div>
       <% end %>
     </div>
@@ -712,7 +717,9 @@
           </div>
         </template>
 
-        <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-4 shadow-sm"><%= t('common.save') %></button>
+        <div class="d-flex justify-content-end pt-3 border-top">
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-4 py-2 shadow-sm"><%= t('common.save') %></button>
+        </div>
       <% end %>
     </div>
 
@@ -724,7 +731,12 @@
 
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
           <div>
-            <h2 class="h6 fw-bold mb-1"><i class="bi bi-globe2 text-primary me-1"></i><%= t('common.public') %> / <%= t('common.restricted') %></h2>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <h2 class="h6 fw-bold mb-0"><i class="bi bi-shield-check text-primary me-1"></i><%= t('inventory.tabs.access') %></h2>
+              <span data-inventory-workspace-target="accessStatusBadge" class="badge rounded-pill px-3 py-1 <%= @inventory.is_public? ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle' %>">
+                <i class="bi <%= @inventory.is_public? ? 'bi-globe2' : 'bi-lock-fill' %> me-1"></i><%= @inventory.is_public? ? t('common.public') : t('common.restricted') %>
+              </span>
+            </div>
             <p class="text-secondary small mb-0"><%= t('inventory.public_access') %></p>
           </div>
           <div class="form-check form-switch m-0">
@@ -735,6 +747,11 @@
           </div>
         </div>
       <% end %>
+
+      <div data-inventory-workspace-target="publicAccessNotice" class="alert alert-info border-0 rounded-3 small py-2 px-3 mt-3 mb-0 d-flex align-items-center gap-2 <%= 'd-none' unless @inventory.is_public? %>">
+        <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+        <span><%= t('inventory.public_access_notice', default: 'Public mode is active — all signed-in users currently have write access. Users listed below will retain access if you switch back to Restricted.') %></span>
+      </div>
     </div>
 
     <div class="card p-4 mb-4">
@@ -805,6 +822,7 @@
     </div>
 
   <% elsif @active_tab == "stats" && can_manage %>
+    <% has_likes = @statistics[:total_likes].to_i.positive? %>
     <div class="row g-3">
       <div class="col-md-6">
         <div class="bento-stat-card bg-body">
@@ -822,9 +840,11 @@
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <div class="text-secondary small fw-medium"><%= t('common.likes') %></div>
-              <div class="fs-2 fw-bold font-mono text-danger"><%= @statistics[:total_likes] %></div>
+              <div class="fs-2 fw-bold font-mono <%= has_likes ? 'text-danger' : 'text-body' %>"><%= @statistics[:total_likes] %></div>
             </div>
-            <span class="stat-icon-badge text-danger" style="background-color: rgba(239, 68, 68, 0.12);"><i class="bi bi-heart-fill"></i></span>
+            <span class="stat-icon-badge <%= has_likes ? 'text-danger' : 'text-secondary' %>" style="<%= has_likes ? 'background-color: rgba(239, 68, 68, 0.12);' : '' %>">
+              <i class="bi <%= has_likes ? 'bi-heart-fill' : 'bi-heart' %>"></i>
+            </span>
           </div>
         </div>
       </div>
@@ -891,35 +911,35 @@
 
       <div class="row g-3 justify-content-center">
         <div class="col-md-5">
-          <div class="bento-stat-card h-100 d-flex flex-column justify-content-between gap-3">
-            <div>
-              <div class="d-flex align-items-center gap-2 mb-1.5">
+          <div class="bento-stat-card h-100 d-flex flex-column justify-content-between bg-body p-4">
+            <div class="mb-4">
+              <div class="d-flex align-items-center gap-2 mb-2">
                 <i class="bi bi-filetype-csv fs-4 text-primary"></i>
-                <h3 class="h6 fw-bold mb-0"><%= t('inventory.export_csv_btn') %></h3>
+                <h3 class="h6 fw-bold mb-0"><%= t('inventory.export_csv_title', default: 'CSV Spreadsheet (UTF-8)') %></h3>
               </div>
               <p class="text-secondary small mb-0"><%= t('inventory.export_csv_hint') %></p>
             </div>
             <%= link_to export_items_csv_inventory_path(@inventory),
                   data: { turbo: false },
-                  class: "btn btn-outline-primary btn-sm fw-semibold rounded-3 py-2 w-100" do %>
-              <i class="bi bi-download me-1"></i><%= t('inventory.export_csv_btn') %>
+                  class: "btn btn-outline-primary fw-semibold rounded-3 w-100 py-2" do %>
+              <i class="bi bi-download me-1.5"></i><%= t('inventory.export_csv_btn') %>
             <% end %>
           </div>
         </div>
 
         <div class="col-md-5">
-          <div class="bento-stat-card h-100 d-flex flex-column justify-content-between gap-3">
-            <div>
-              <div class="d-flex align-items-center gap-2 mb-1.5">
+          <div class="bento-stat-card h-100 d-flex flex-column justify-content-between bg-body p-4">
+            <div class="mb-4">
+              <div class="d-flex align-items-center gap-2 mb-2">
                 <i class="bi bi-file-earmark-excel-fill fs-4 text-success"></i>
-                <h3 class="h6 fw-bold mb-0"><%= t('inventory.export_xlsx_btn') %></h3>
+                <h3 class="h6 fw-bold mb-0"><%= t('inventory.export_xlsx_title', default: 'Microsoft Excel (.xlsx)') %></h3>
               </div>
               <p class="text-secondary small mb-0"><%= t('inventory.export_xlsx_hint') %></p>
             </div>
             <%= link_to export_items_xlsx_inventory_path(@inventory),
                   data: { turbo: false },
-                  class: "btn btn-primary btn-sm fw-semibold rounded-3 py-2 w-100 shadow-sm" do %>
-              <i class="bi bi-file-earmark-arrow-down me-1"></i><%= t('inventory.export_xlsx_btn') %>
+                  class: "btn btn-primary fw-semibold rounded-3 w-100 py-2 shadow-sm" do %>
+              <i class="bi bi-file-earmark-arrow-down me-1.5"></i><%= t('inventory.export_xlsx_btn') %>
             <% end %>
           </div>
         </div>
