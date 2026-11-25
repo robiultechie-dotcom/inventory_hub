@@ -24,14 +24,13 @@ class InventoriesController < ApplicationController
     @active_tab           = "items" if %w[ settings custom_id fields access stats export ].include?(@active_tab) && !@inventory.manageable_by?(current_user)
     @custom_fields        = @inventory.ordered_custom_fields
     @dynamic_table_fields = @inventory.dynamic_table_fields
-    @table_fields         = @inventory.table_custom_fields
     @id_generator         = CustomIdGenerator.new(@inventory)
 
-    items_scope        = @inventory.items.includes(:created_by, :item_field_values).order(created_at: :desc)
-    @total_items_count = @inventory.items_count
-    @total_pages       = [ (@total_items_count.to_f / ITEMS_PER_PAGE).ceil, 1 ].max
-    @page              = params[:page].to_i.clamp(1, @total_pages)
-    @items             = items_scope.offset((@page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).to_a
+    items_scope       = @inventory.items.includes(:created_by, :item_field_values).order(created_at: :desc)
+    total_items_count = @inventory.items_count
+    @total_pages      = [ (total_items_count.to_f / ITEMS_PER_PAGE).ceil, 1 ].max
+    @page             = params[:page].to_i.clamp(1, @total_pages)
+    @items            = items_scope.offset((@page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).to_a
 
     @liked_item_ids = Set.new
     if current_user && @items.any?

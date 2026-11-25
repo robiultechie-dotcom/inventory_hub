@@ -32,7 +32,7 @@
 
 | Layer | Technology |
 | :--- | :--- |
-| **Framework** | Ruby on Rails 8.1 (Ruby 3.3) |
+| **Framework** | Ruby on Rails 8.1 (Ruby 4.0) |
 | **Database** | PostgreSQL (Native Full-Text Search & GIN Indexes) |
 | **Frontend** | ERB, Bootstrap 5, Hotwire (Turbo & Stimulus), Importmap |
 | **Authentication** | OmniAuth 2.0 (`omniauth-google-oauth2`, `omniauth-github`), BCrypt |
@@ -44,14 +44,14 @@
 ## Local Setup
 
 ### Prerequisites
-* Ruby 3.3+
+* Ruby 4.0+
 * PostgreSQL 14+
 * Bundler
 
 ### Installation
 
 ```bash
-git clone [https://github.com/robiultechie-dotcom/inventory_hub.git](https://github.com/robiultechie-dotcom/inventory_hub.git)
+git clone https://github.com/robiultechie-dotcom/inventory_hub.git
 cd inventory_hub
 bundle install
 ```

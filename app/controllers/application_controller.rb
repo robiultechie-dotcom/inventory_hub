@@ -58,5 +58,4 @@ class ApplicationController < ActionController::Base
       redirect_to root_path, alert: t("flashes.admin_required", default: "Admin access required.")
     end
   end
-  alias authenticate_admin! require_admin!
 end

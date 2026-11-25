@@ -8,22 +8,18 @@ class ItemsController < ApplicationController
 
   def show
     @custom_fields = @inventory.ordered_custom_fields
-    @active_fields = @inventory.active_custom_fields
   end
 
   def new
     @custom_fields = @inventory.ordered_custom_fields
-    @active_fields = @inventory.active_custom_fields
     generated_id   = CustomIdGenerator.new(@inventory).generate(preview: false)
     @item          = @inventory.items.build(custom_id: generated_id)
   end
 
   def create
     @custom_fields  = @inventory.ordered_custom_fields
-    @active_fields  = @inventory.active_custom_fields
     submitted_attrs = item_params.to_h
 
-    # Preserve visible generated/edited Custom ID so parallel duplicates trigger DB conflict rejection (Section 6)
     if submitted_attrs["custom_id"].to_s.strip.blank?
       submitted_attrs["custom_id"] = CustomIdGenerator.new(@inventory).generate(preview: false, timestamp: Time.current)
     end
@@ -44,12 +40,10 @@ class ItemsController < ApplicationController
 
   def edit
     @custom_fields = @inventory.ordered_custom_fields
-    @active_fields = @inventory.active_custom_fields
   end
 
   def update
     @custom_fields    = @inventory.ordered_custom_fields
-    @active_fields    = @inventory.active_custom_fields
     submitted_version = params.dig(:item, :lock_version)
     force_overwrite   = params[:force_overwrite] == "1"
 
