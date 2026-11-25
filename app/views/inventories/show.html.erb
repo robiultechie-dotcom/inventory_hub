@@ -114,6 +114,11 @@
   </ul>
 
   <% if @active_tab == "items" %>
+    <%
+      pagination_params = { tab: "items" }
+      pagination_params[:item_q]    = @item_query if @item_query.present?
+      pagination_params[:item_sort] = @item_sort  if @item_sort != "newest"
+    %>
     <div class="card overflow-hidden" data-controller="table-selection">
       <div data-table-selection-target="toolbar" class="context-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2">
         <% if current_user %>
@@ -143,26 +148,42 @@
           </span>
         <% end %>
 
-        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+        <%= form_with url: inventory_path(@inventory), method: :get, local: true, class: "d-flex flex-wrap align-items-center gap-2 ms-auto" do %>
+          <%= hidden_field_tag :tab, "items" %>
+
           <div class="input-group input-group-sm" style="width: 260px;">
             <span class="input-group-text bg-body border-end-0 text-secondary"><i class="bi bi-funnel"></i></span>
             <input type="search"
-                   data-inventory-workspace-target="itemFilterInput"
-                   data-action="input->inventory-workspace#filterAndSortItems"
+                   name="item_q"
+                   value="<%= @item_query %>"
+                   data-action="search->inventory-workspace#submitItemFilter"
                    class="form-control border-start-0 ps-0"
                    placeholder="<%= t('inventory.item_filter_placeholder', default: 'Filter items by ID or values...') %>">
+            <% if @item_query.present? %>
+              <%= link_to inventory_path(@inventory, tab: "items", item_sort: (@item_sort unless @item_sort == "newest")),
+                    class: "btn btn-outline-secondary border-start-0",
+                    title: t('common.cancel'),
+                    aria: { label: t('common.cancel') } do %>
+                <i class="bi bi-x-lg"></i>
+              <% end %>
+            <% end %>
           </div>
-          <select data-inventory-workspace-target="itemSortSelect"
-                  data-action="change->inventory-workspace#filterAndSortItems"
+
+          <select name="item_sort"
+                  data-action="change->inventory-workspace#submitItemFilter"
                   class="form-select form-select-sm"
                   style="width: 155px;">
-            <option value="newest"><%= t('workspace.sort_newest') %></option>
-            <option value="oldest"><%= t('workspace.sort_oldest') %></option>
-            <option value="id_asc">ID (A-Z)</option>
-            <option value="id_desc">ID (Z-A)</option>
-            <option value="likes_desc"><%= t('common.likes') %></option>
+            <option value="newest" <%= "selected" if @item_sort == "newest" %>><%= t('workspace.sort_newest') %></option>
+            <option value="oldest" <%= "selected" if @item_sort == "oldest" %>><%= t('workspace.sort_oldest') %></option>
+            <option value="id_asc" <%= "selected" if @item_sort == "id_asc" %>>ID (A-Z)</option>
+            <option value="id_desc" <%= "selected" if @item_sort == "id_desc" %>>ID (Z-A)</option>
+            <option value="likes_desc" <%= "selected" if @item_sort == "likes_desc" %>><%= t('common.likes') %></option>
           </select>
-        </div>
+
+          <button type="submit" class="btn btn-sm btn-outline-primary rounded-3 px-2.5" aria-label="<%= t('common.search_heading') %>">
+            <i class="bi bi-funnel-fill"></i>
+          </button>
+        <% end %>
       </div>
 
       <div class="table-responsive">
@@ -180,13 +201,20 @@
               <th class="text-end pe-4"><%= t('common.likes') %></th>
             </tr>
           </thead>
-          <tbody data-inventory-workspace-target="itemsTableBody">
+          <tbody>
             <% if @items.empty? %>
               <tr>
                 <td colspan="<%= @dynamic_table_fields.size + (current_user ? 4 : 3) %>" class="empty-state-box">
                   <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
                   <div class="fw-semibold text-body mb-1"><%= t('common.no_items') %></div>
-                  <% if can_write %>
+                  <% if @item_query.present? %>
+                    <div class="mt-2">
+                      <%= link_to inventory_path(@inventory, tab: "items", item_sort: (@item_sort unless @item_sort == "newest")),
+                            class: "btn btn-sm btn-outline-secondary rounded-3 px-3" do %>
+                        <i class="bi bi-arrow-counterclockwise me-1"></i><%= t('common.back') %>
+                      <% end %>
+                    </div>
+                  <% elsif can_write %>
                     <div class="mt-2">
                       <%= link_to new_inventory_item_path(@inventory), class: "btn btn-sm btn-primary rounded-3 px-3" do %>
                         <i class="bi bi-plus-lg me-1"></i><%= t('inventory.add_item') %>
@@ -200,12 +228,8 @@
                 <% target_url = can_write ? edit_inventory_item_path(@inventory, item) : inventory_item_path(@inventory, item) %>
                 <% like_url   = toggle_like_inventory_item_path(@inventory, item) %>
                 <% liked      = @liked_item_ids.include?(item.id) %>
-                <tr data-item-row="true"
-                    data-url="<%= target_url %>"
+                <tr data-url="<%= target_url %>"
                     data-like-url="<%= like_url %>"
-                    data-search-text="<%= item.search_index_text %>"
-                    data-custom-id="<%= item.custom_id.downcase %>"
-                    data-created="<%= item.created_at.to_i %>"
                     data-likes="<%= item.likes_count %>">
                   <% if current_user %>
                     <td class="ps-4">
@@ -279,10 +303,10 @@
           </span>
           <div class="btn-group btn-group-sm">
             <%= link_to t('common.prev_page'),
-                  inventory_path(@inventory, tab: "items", page: [ @page - 1, 1 ].max),
+                  inventory_path(@inventory, pagination_params.merge(page: [ @page - 1, 1 ].max)),
                   class: "btn btn-outline-secondary #{'disabled' if @page <= 1}" %>
             <%= link_to t('common.next_page'),
-                  inventory_path(@inventory, tab: "items", page: [ @page + 1, @total_pages ].min),
+                  inventory_path(@inventory, pagination_params.merge(page: [ @page + 1, @total_pages ].min)),
                   class: "btn btn-outline-secondary #{'disabled' if @page >= @total_pages}" %>
           </div>
         </div>

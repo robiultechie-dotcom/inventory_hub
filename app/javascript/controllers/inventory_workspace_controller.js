@@ -81,9 +81,6 @@ export default class extends Controller {
     "headerTags",
     "accessStatusBadge",
     "publicAccessNotice",
-    "itemsTableBody",
-    "itemFilterInput",
-    "itemSortSelect",
     "discussionList",
     "commentForm",
     "commentInput",
@@ -214,28 +211,9 @@ export default class extends Controller {
     }
   }
 
-  filterAndSortItems() {
-    if (!this.hasItemsTableBodyTarget) return
-    const query = this.hasItemFilterInputTarget ? this.itemFilterInputTarget.value.trim().toLowerCase() : ""
-    const sortMode = this.hasItemSortSelectTarget ? this.itemSortSelectTarget.value : "newest"
-    const rows = Array.from(this.itemsTableBodyTarget.querySelectorAll("tr[data-item-row='true']"))
-
-    rows.forEach((row) => {
-      const searchable = row.dataset.searchText || row.textContent.toLowerCase()
-      const matches = !query || searchable.includes(query)
-      row.classList.toggle("d-none", !matches)
-    })
-
-    rows.sort((a, b) => {
-      if (sortMode === "oldest") return Number(a.dataset.created) - Number(b.dataset.created)
-      if (sortMode === "id_asc") return (a.dataset.customId || "").localeCompare(b.dataset.customId || "")
-      if (sortMode === "id_desc") return (b.dataset.customId || "").localeCompare(a.dataset.customId || "")
-      if (sortMode === "likes_desc") return Number(b.dataset.likes) - Number(a.dataset.likes)
-      return Number(b.dataset.created) - Number(a.dataset.created)
-    })
-
-    rows.forEach((row) => this.itemsTableBodyTarget.appendChild(row))
-    this.itemsTableBodyTarget.dispatchEvent(new CustomEvent("table:filtered", { bubbles: true }))
+  submitItemFilter(event) {
+    const form = event.currentTarget?.form || event.currentTarget?.closest("form")
+    if (form) form.requestSubmit()
   }
 
   initDiscussionPolling() {

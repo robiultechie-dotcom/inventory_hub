@@ -3,7 +3,8 @@
 require "set"
 
 class InventoriesController < ApplicationController
-  ITEMS_PER_PAGE = 50
+  ITEMS_PER_PAGE     = 50
+  ALLOWED_ITEM_SORTS = %w[ newest oldest id_asc id_desc likes_desc ].freeze
 
   before_action :authenticate_user!, except: %i[ index show ]
   before_action :set_inventory, only: %i[
@@ -26,11 +27,17 @@ class InventoriesController < ApplicationController
     @dynamic_table_fields = @inventory.dynamic_table_fields
     @id_generator         = CustomIdGenerator.new(@inventory)
 
-    items_scope       = @inventory.items.includes(:created_by, :item_field_values).order(created_at: :desc)
-    total_items_count = @inventory.items_count
-    @total_pages      = [ (total_items_count.to_f / ITEMS_PER_PAGE).ceil, 1 ].max
-    @page             = params[:page].to_i.clamp(1, @total_pages)
-    @items            = items_scope.offset((@page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).to_a
+    @item_query          = params[:item_q].to_s.strip
+    @item_sort           = ALLOWED_ITEM_SORTS.include?(params[:item_sort]) ? params[:item_sort] : "newest"
+    filtered_items_scope = filter_items(Item.where(inventory_id: @inventory.id), @item_query)
+    total_items_count    = @item_query.present? ? filtered_items_scope.count : @inventory.items_count
+    @total_pages         = [ (total_items_count.to_f / ITEMS_PER_PAGE).ceil, 1 ].max
+    @page                = params[:page].to_i.clamp(1, @total_pages)
+    @items               = sort_items(filtered_items_scope, @item_sort)
+                             .includes(:created_by, :item_field_values)
+                             .offset((@page - 1) * ITEMS_PER_PAGE)
+                             .limit(ITEMS_PER_PAGE)
+                             .to_a
 
     @liked_item_ids = Set.new
     if current_user && @items.any?
@@ -175,6 +182,30 @@ class InventoriesController < ApplicationController
   end
 
   private
+
+  def filter_items(scope, query)
+    return scope if query.blank?
+
+    like_q      = "%#{Item.sanitize_sql_like(query)}%"
+    fts_scope   = scope.merge(Item.full_text_search(query))
+    extra_scope = scope.where(
+      "EXISTS (SELECT 1 FROM users WHERE users.id = items.created_by_id AND users.name ILIKE :like_q) " \
+      "OR EXISTS (SELECT 1 FROM item_field_values WHERE item_field_values.item_id = items.id AND CAST(item_field_values.numeric_value AS TEXT) ILIKE :like_q)",
+      like_q: like_q
+    )
+
+    fts_scope.or(extra_scope)
+  end
+
+  def sort_items(scope, sort_mode)
+    case sort_mode
+    when "oldest"     then scope.order(created_at: :asc, id: :asc)
+    when "id_asc"     then scope.order(Arel.sql("LOWER(items.custom_id) ASC"), id: :asc)
+    when "id_desc"    then scope.order(Arel.sql("LOWER(items.custom_id) DESC"), id: :desc)
+    when "likes_desc" then scope.order(likes_count: :desc, created_at: :desc, id: :desc)
+    else                   scope.order(created_at: :desc, id: :desc)
+    end
+  end
 
   def set_inventory
     @inventory = Inventory.includes(:custom_fields).find(params[:id])
