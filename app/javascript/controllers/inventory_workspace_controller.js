@@ -16,6 +16,7 @@ const I18N_WORKSPACE = {
     unsaved: "Unsaved changes...",
     saving: "Saving...",
     saved: "All changes saved",
+    savedBtn: "Changes saved",
     saveFailed: "Save failed",
     conflict: "Version Conflict!",
     maxElements: "Maximum 10 elements allowed.",
@@ -44,6 +45,7 @@ const I18N_WORKSPACE = {
     unsaved: "Cambios sin guardar...",
     saving: "Guardando...",
     saved: "Todos los cambios guardados",
+    savedBtn: "Cambios guardados",
     saveFailed: "Error al guardar",
     conflict: "¡Conflicto de versión!",
     maxElements: "Se permiten máximo 10 elementos.",
@@ -115,6 +117,7 @@ export default class extends Controller {
     this.changeCounter = 0
     this.lastSavedCounter = 0
     this.activeSavePromise = null
+    this.submitResetTimer = null
     this.isSubmittingComment = false
     this.popoverInstances = new Set()
 
@@ -142,6 +145,11 @@ export default class extends Controller {
     }
     if (this.pollTimer) clearInterval(this.pollTimer)
     if (this.saveTimer) clearInterval(this.saveTimer)
+    if (this.submitResetTimer) {
+      clearTimeout(this.submitResetTimer)
+      this.submitResetTimer = null
+    }
+    this.setSubmitButtonState("idle")
 
     if (this.tagTomSelect) {
       this.tagTomSelect.destroy()
@@ -307,10 +315,67 @@ export default class extends Controller {
 
   markDirty() {
     this.changeCounter += 1
+    if (!this.activeSavePromise) {
+      this.setSubmitButtonState("idle")
+    }
     const headerBadge = document.getElementById("autoSaveBadge")
     if (headerBadge) {
       headerBadge.className = "badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 font-mono"
       headerBadge.innerHTML = `<i class="bi bi-arrow-repeat me-1"></i>${this.dict.unsaved}`
+    }
+  }
+
+  setSubmitButtonState(state) {
+    if (!this.hasAutoSaveFormTarget) return
+    const btn = this.autoSaveFormTarget.querySelector('button[type="submit"], input[type="submit"]')
+    if (!btn) return
+
+    const isInput = btn.tagName === "INPUT"
+    if (!btn.dataset.originalLabel) {
+      btn.dataset.originalLabel = isInput ? btn.value : btn.innerHTML
+    }
+
+    if (this.submitResetTimer) {
+      clearTimeout(this.submitResetTimer)
+      this.submitResetTimer = null
+    }
+
+    btn.classList.remove("btn-primary", "btn-success", "btn-danger")
+
+    if (state === "saving") {
+      btn.disabled = true
+      btn.classList.add("btn-primary")
+      if (isInput) {
+        btn.value = this.dict.saving
+      } else {
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true"></span>${this.dict.saving}`
+      }
+    } else if (state === "saved") {
+      btn.disabled = false
+      btn.classList.add("btn-success")
+      if (isInput) {
+        btn.value = `✓ ${this.dict.savedBtn}`
+      } else {
+        btn.innerHTML = `<i class="bi bi-check-circle-fill me-1.5"></i>${this.dict.savedBtn}`
+      }
+      this.submitResetTimer = setTimeout(() => this.setSubmitButtonState("idle"), 2000)
+    } else if (state === "error") {
+      btn.disabled = false
+      btn.classList.add("btn-danger")
+      if (isInput) {
+        btn.value = this.dict.saveFailed
+      } else {
+        btn.innerHTML = `<i class="bi bi-exclamation-circle-fill me-1.5"></i>${this.dict.saveFailed}`
+      }
+      this.submitResetTimer = setTimeout(() => this.setSubmitButtonState("idle"), 2500)
+    } else {
+      btn.disabled = false
+      btn.classList.add("btn-primary")
+      if (isInput) {
+        btn.value = btn.dataset.originalLabel
+      } else {
+        btn.innerHTML = btn.dataset.originalLabel
+      }
     }
   }
 
@@ -440,6 +505,8 @@ export default class extends Controller {
     }
 
     const snapshotCounter = this.changeCounter
+    this.setSubmitButtonState("saving")
+
     const headerBadge = document.getElementById("autoSaveBadge")
     if (headerBadge) {
       headerBadge.className = "badge bg-info-subtle text-info border border-info-subtle rounded-pill px-3 py-1 font-mono"
@@ -475,11 +542,15 @@ export default class extends Controller {
         this.syncSavedCustomFieldIds(data.custom_fields)
         this.syncHeaderFromResponse(data)
 
-        if (headerBadge) {
-          if (this.changeCounter > this.lastSavedCounter) {
+        if (this.changeCounter > this.lastSavedCounter) {
+          this.setSubmitButtonState("idle")
+          if (headerBadge) {
             headerBadge.className = "badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 font-mono"
             headerBadge.innerHTML = `<i class="bi bi-arrow-repeat me-1"></i>${this.dict.unsaved}`
-          } else {
+          }
+        } else {
+          this.setSubmitButtonState("saved")
+          if (headerBadge) {
             headerBadge.className = "badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1"
             headerBadge.innerHTML = `<i class="bi bi-cloud-check-fill me-1"></i>${this.dict.saved} (${data.saved_at})`
           }
@@ -487,6 +558,7 @@ export default class extends Controller {
         return true
       }
 
+      this.setSubmitButtonState("error")
       if (res.status === 409) {
         if (this.hasConflictBannerTarget) {
           this.conflictMessageTarget.textContent = data.message || this.dict.conflict
@@ -502,6 +574,7 @@ export default class extends Controller {
       }
       return false
     } catch (_) {
+      this.setSubmitButtonState("error")
       if (headerBadge) {
         headerBadge.className = "badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1"
         headerBadge.innerHTML = `<i class="bi bi-wifi-off me-1"></i>${this.dict.saveFailed}`
